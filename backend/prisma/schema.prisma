@@ -1,11 +1,10 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
 }
 
 enum OrgType {
@@ -87,11 +86,11 @@ model User {
   userType  UserType @default(citizen)
   createdAt DateTime @default(now())
 
-  profile        Profile?
-  orgMembers     OrgMember[]
-  reports        Report[]
-  verifiedOrgs   Organization[]          @relation("VerifiedBy")
-  statusChanges  ReferralStatusHistory[]
+  profile       Profile?
+  orgMembers    OrgMember[]
+  reports       Report[]
+  verifiedOrgs  Organization[]          @relation("VerifiedBy")
+  statusChanges ReferralStatusHistory[]
 
   @@map("users")
 }
@@ -126,17 +125,17 @@ model Organization {
   verifiedByUser     User?              @relation("VerifiedBy", fields: [verifiedBy], references: [id])
   createdAt          DateTime           @default(now())
 
-  members            OrgMember[]
-  services           Service[]
+  members  OrgMember[]
+  services Service[]
 
   @@map("organizations")
 }
 
 model OrgMember {
-  id        String   @id @default(uuid())
-  orgId     String
-  userId    String
-  role      OrgRole
+  id     String  @id @default(uuid())
+  orgId  String
+  userId String
+  role   OrgRole
 
   organization Organization @relation(fields: [orgId], references: [id])
   user         User         @relation(fields: [userId], references: [id])
@@ -157,18 +156,18 @@ model ProblemCategory {
 }
 
 model Service {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   orgId       String
   categoryId  Int
   name        String
   description String?
   capacity    Int?
-  isActive    Boolean  @default(true)
+  isActive    Boolean @default(true)
 
-  organization Organization @relation(fields: [orgId], references: [id])
-  category     ProblemCategory @relation(fields: [categoryId], references: [id])
+  organization     Organization      @relation(fields: [orgId], references: [id])
+  category         ProblemCategory   @relation(fields: [categoryId], references: [id])
   eligibilityRules EligibilityRule[]
-  referrals    Referral[]
+  referrals        Referral[]
 
   @@map("services")
 }
@@ -198,29 +197,29 @@ model DisasterEvent {
 }
 
 model Report {
-  id               String        @id @default(uuid())
-  userId           String?
-  rawText          String
-  lat              Float?
-  lng              Float?
-  severity         Severity      @default(medium)
-  status           ReportStatus  @default(new)
-  disasterEventId  String?
-  createdAt        DateTime      @default(now())
+  id              String       @id @default(uuid())
+  userId          String?
+  rawText         String
+  lat             Float?
+  lng             Float?
+  severity        Severity     @default(medium)
+  status          ReportStatus @default(new)
+  disasterEventId String?
+  createdAt       DateTime     @default(now())
 
-  user           User?           @relation(fields: [userId], references: [id])
-  disasterEvent  DisasterEvent?  @relation(fields: [disasterEventId], references: [id])
-  detectedNeeds  DetectedNeed[]
+  user          User?          @relation(fields: [userId], references: [id])
+  disasterEvent DisasterEvent? @relation(fields: [disasterEventId], references: [id])
+  detectedNeeds DetectedNeed[]
 
   @@map("reports")
 }
 
 model DetectedNeed {
-  id               String   @id @default(uuid())
-  reportId         String
-  categoryId       Int
-  confidenceScore  Float?
-  description      String?
+  id              String  @id @default(uuid())
+  reportId        String
+  categoryId      Int
+  confidenceScore Float?
+  description     String?
 
   report    Report          @relation(fields: [reportId], references: [id])
   category  ProblemCategory @relation(fields: [categoryId], references: [id])
@@ -237,36 +236,36 @@ model Referral {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
-  need           DetectedNeed @relation(fields: [needId], references: [id])
-  service        Service      @relation(fields: [serviceId], references: [id])
-  statusHistory  ReferralStatusHistory[]
-  followUps      FollowUp[]
-  outcome        Outcome?
+  need          DetectedNeed            @relation(fields: [needId], references: [id])
+  service       Service                 @relation(fields: [serviceId], references: [id])
+  statusHistory ReferralStatusHistory[]
+  followUps     FollowUp[]
+  outcome       Outcome?
 
   @@map("referrals")
 }
 
 model ReferralStatusHistory {
-  id          String         @id @default(uuid())
-  referralId  String
-  status      ReferralStatus
-  note        String?
-  changedBy   String?
-  changedAt   DateTime       @default(now())
+  id         String         @id @default(uuid())
+  referralId String
+  status     ReferralStatus
+  note       String?
+  changedBy  String?
+  changedAt  DateTime       @default(now())
 
-  referral Referral @relation(fields: [referralId], references: [id])
-  changedByUser User? @relation(fields: [changedBy], references: [id])
+  referral      Referral @relation(fields: [referralId], references: [id])
+  changedByUser User?    @relation(fields: [changedBy], references: [id])
 
   @@map("referral_status_history")
 }
 
 model FollowUp {
-  id            String         @id @default(uuid())
-  referralId    String
-  scheduledAt   DateTime
-  method        FollowUpMethod
-  completed     Boolean        @default(false)
-  outcomeNotes  String?
+  id           String         @id @default(uuid())
+  referralId   String
+  scheduledAt  DateTime
+  method       FollowUpMethod
+  completed    Boolean        @default(false)
+  outcomeNotes String?
 
   referral Referral @relation(fields: [referralId], references: [id])
 
@@ -274,11 +273,11 @@ model FollowUp {
 }
 
 model Outcome {
-  id              String      @id @default(uuid())
-  referralId      String      @unique
-  outcomeType     OutcomeType
-  resolvedAt      DateTime?
-  feedbackRating  Int?
+  id             String      @id @default(uuid())
+  referralId     String      @unique
+  outcomeType    OutcomeType
+  resolvedAt     DateTime?
+  feedbackRating Int?
 
   referral Referral @relation(fields: [referralId], references: [id])
 
