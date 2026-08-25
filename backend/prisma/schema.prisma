@@ -1,22 +1,285 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
-
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
 }
-model User {
-  id            Int          @id             @default(autoincrement())
-  fullname      String       @unique
-  phone         Int          @unique
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
 
-} 
+enum OrgType {
+  ngo
+  govt
+  hospital
+  shelter
+  foodbank
+}
+
+enum VerificationStatus {
+  pending
+  verified
+  rejected
+}
+
+enum OrgRole {
+  admin
+  staff
+}
+
+enum UserType {
+  citizen
+  org_staff
+  platform_admin
+}
+
+enum Severity {
+  low
+  medium
+  high
+  critical
+}
+
+enum ReportStatus {
+  new
+  processing
+  resolved
+  closed
+}
+
+enum ReferralStatus {
+  pending
+  contacted
+  in_progress
+  fulfilled
+  declined
+}
+
+enum FollowUpMethod {
+  call
+  sms
+}
+
+enum OutcomeType {
+  resolved
+  partial
+  unresolved
+}
+
+enum DisasterType {
+  flood
+  earthquake
+  fire
+  other
+}
+
+enum RuleType {
+  income_below
+  age_above
+  location_radius_km
+  document_required
+}
+
+model User {
+  id        String   @id @default(uuid())
+  phone     String?  @unique
+  email     String  @unique
+  password  Int    
+  userType  UserType @default(citizen)
+  createdAt DateTime @default(now())
+
+  profile       Profile?
+  orgMembers    OrgMember[]
+  reports       Report[]
+  verifiedOrgs  Organization[]          @relation("VerifiedBy")
+  statusChanges ReferralStatusHistory[]
+
+  @@map("users")
+}
+
+model Profile {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  fullName          String?
+  preferredLanguage String   @default("hi")
+  address           String?
+  lat               Float?
+  lng               Float?
+  isComplete        Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("profiles")
+}
+
+model Organization {
+  id                 String             @id @default(uuid())
+  name               String
+  type               OrgType
+  verificationStatus VerificationStatus @default(pending)
+  contactPhone       String?
+  address            String?
+  lat                Float?
+  lng                Float?
+  verifiedBy         String?
+  verifiedByUser     User?              @relation("VerifiedBy", fields: [verifiedBy], references: [id])
+  createdAt          DateTime           @default(now())
+
+  members  OrgMember[]
+  services Service[]
+
+  @@map("organizations")
+}
+
+model OrgMember {
+  id     String  @id @default(uuid())
+  orgId  String
+  userId String
+  role   OrgRole
+
+  organization Organization @relation(fields: [orgId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([orgId, userId])
+  @@map("org_members")
+}
+
+model ProblemCategory {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  description String?
+
+  services      Service[]
+  detectedNeeds DetectedNeed[]
+
+  @@map("problem_categories")
+}
+
+model Service {
+  id          String  @id @default(uuid())
+  orgId       String
+  categoryId  Int
+  name        String
+  description String?
+  capacity    Int?
+  isActive    Boolean @default(true)
+
+  organization     Organization      @relation(fields: [orgId], references: [id])
+  category         ProblemCategory   @relation(fields: [categoryId], references: [id])
+  eligibilityRules EligibilityRule[]
+  referrals        Referral[]
+
+  @@map("services")
+}
+
+model EligibilityRule {
+  id        String   @id @default(uuid())
+  serviceId String
+  ruleType  RuleType
+  ruleValue String
+
+  service Service @relation(fields: [serviceId], references: [id])
+
+  @@map("eligibility_rules")
+}
+
+model DisasterEvent {
+  id           String       @id @default(uuid())
+  name         String
+  type         DisasterType
+  affectedArea String?
+  startDate    DateTime
+  active       Boolean      @default(true)
+
+  reports Report[]
+
+  @@map("disaster_events")
+}
+
+model Report {
+  id              String       @id @default(uuid())
+  userId          String?
+  rawText         String
+  lat             Float?
+  lng             Float?
+  severity        Severity     @default(medium)
+  status          ReportStatus @default(new)
+  disasterEventId String?
+  createdAt       DateTime     @default(now())
+
+  user          User?          @relation(fields: [userId], references: [id])
+  disasterEvent DisasterEvent? @relation(fields: [disasterEventId], references: [id])
+  detectedNeeds DetectedNeed[]
+
+  @@map("reports")
+}
+
+model DetectedNeed {
+  id              String  @id @default(uuid())
+  reportId        String
+  categoryId      Int
+  confidenceScore Float?
+  description     String?
+
+  report    Report          @relation(fields: [reportId], references: [id])
+  category  ProblemCategory @relation(fields: [categoryId], references: [id])
+  referrals Referral[]
+
+  @@map("detected_needs")
+}
+
+model Referral {
+  id        String         @id @default(uuid())
+  needId    String
+  serviceId String
+  status    ReferralStatus @default(pending)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  need          DetectedNeed            @relation(fields: [needId], references: [id])
+  service       Service                 @relation(fields: [serviceId], references: [id])
+  statusHistory ReferralStatusHistory[]
+  followUps     FollowUp[]
+  outcome       Outcome?
+
+  @@map("referrals")
+}
+
+model ReferralStatusHistory {
+  id         String         @id @default(uuid())
+  referralId String
+  status     ReferralStatus
+  note       String?
+  changedBy  String?
+  changedAt  DateTime       @default(now())
+
+  referral      Referral @relation(fields: [referralId], references: [id])
+  changedByUser User?    @relation(fields: [changedBy], references: [id])
+
+  @@map("referral_status_history")
+}
+
+model FollowUp {
+  id           String         @id @default(uuid())
+  referralId   String
+  scheduledAt  DateTime
+  method       FollowUpMethod
+  completed    Boolean        @default(false)
+  outcomeNotes String?
+
+  referral Referral @relation(fields: [referralId], references: [id])
+
+  @@map("follow_ups")
+}
+
+model Outcome {
+  id             String      @id @default(uuid())
+  referralId     String      @unique
+  outcomeType    OutcomeType
+  resolvedAt     DateTime?
+  feedbackRating Int?
+
+  referral Referral @relation(fields: [referralId], references: [id])
+
+  @@map("outcomes")
+}
