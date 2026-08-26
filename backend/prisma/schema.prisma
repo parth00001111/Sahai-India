@@ -82,7 +82,7 @@ model User {
   id        String   @id @default(uuid())
   phone     String?  @unique
   email     String  @unique
-  password  Int    
+  password  String    
   userType  UserType @default(citizen)
   createdAt DateTime @default(now())
 
