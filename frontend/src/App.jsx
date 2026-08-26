@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import logo from './assets/sahai-india-logo.png'
 import modiPoster from './assets/sahai-india-modi-poster.png'
+import AuthPage from './components/AuthPage.jsx'
 
 const slides = [
   { tag: 'Seva is the strength of a nation', title: 'Together, we lift every citizen', text: 'Sahai India connects people in need with compassionate volunteers, trusted organisations, and essential services—because progress begins when no one is left behind.', image: modiPoster, dark: true, note: 'Concept visual • No official endorsement is implied' },
@@ -45,8 +46,11 @@ function Heading({ label, title, text, left = false }) {
 function App() {
   const [slide, setSlide] = useState(0)
   const [menu, setMenu] = useState(false)
+  const [authMode, setAuthMode] = useState(null)
   useEffect(() => { const id = setInterval(() => setSlide((n) => (n + 1) % slides.length), 6500); return () => clearInterval(id) }, [])
   const move = (n) => setSlide((current) => (current + n + slides.length) % slides.length)
+
+  if (authMode) return <AuthPage initialMode={authMode} onBack={() => setAuthMode(null)} />
 
   return <div className="min-h-screen overflow-x-hidden bg-[#fffdf9] text-ink">
     <div className="h-1.5 bg-gradient-to-r from-saffron via-white to-india-green" />
@@ -56,10 +60,10 @@ function App() {
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8" aria-label="Main navigation">
         <a href="#" className="group flex min-w-0 items-center gap-3" aria-label="Sahai India home"><img src={logo} alt="" className="h-14 w-14 shrink-0 object-contain transition duration-300 group-hover:scale-105 sm:h-16 sm:w-16"/><span className="border-l-2 border-orange-200 pl-3"><strong className="flex items-baseline gap-1.5 text-xl font-extrabold tracking-[.04em] sm:text-2xl"><span className="text-navy">SAHAI</span><span className="bg-gradient-to-r from-saffron to-india-green bg-clip-text text-transparent">INDIA</span></strong><span aria-hidden="true" className="mt-1 flex h-0.5 w-full overflow-hidden rounded-full"><span className="w-1/3 bg-saffron"/><span className="w-1/3 bg-slate-100"/><span className="w-1/3 bg-india-green"/></span><span className="mt-1 block text-[9px] font-bold tracking-[.14em] text-india-green sm:text-[10px]">सेवा • सहयोग • विश्वास</span></span></a>
         <div className="hidden items-center gap-7 lg:flex">{['About','Organisations','Impact','FAQ'].map(x => <a key={x} href={`#${x.toLowerCase()}`} className="text-sm font-semibold text-slate-700 hover:text-orange-700">{x}</a>)}</div>
-        <div className="hidden gap-3 sm:flex"><button className="rounded-lg border border-navy px-4 py-2.5 text-sm font-bold text-navy hover:bg-blue-50">Log in</button><button className="rounded-lg bg-navy px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-950">Sign up</button></div>
+        <div className="hidden gap-3 sm:flex"><button onClick={() => setAuthMode('login')} className="rounded-lg border border-navy bg-white px-4 py-2.5 text-sm font-bold text-navy shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-transparent hover:bg-gradient-to-r hover:from-orange-100 hover:via-white hover:to-green-100 hover:shadow-md">Log in</button><button onClick={() => setAuthMode('signup')} className="rounded-lg border border-navy bg-navy px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-orange-200 hover:bg-gradient-to-r hover:from-saffron hover:via-white hover:to-india-green hover:text-navy hover:shadow-md">Sign up</button></div>
         <button onClick={() => setMenu(!menu)} aria-expanded={menu} aria-label="Toggle menu" className="grid h-11 w-11 place-items-center rounded-lg border border-slate-200 text-2xl text-navy sm:hidden">☰</button>
       </nav>
-      {menu && <div className="border-t bg-white px-4 py-4 sm:hidden"><div className="grid gap-2">{['About','Organisations','Impact','FAQ'].map(x => <a key={x} href={`#${x.toLowerCase()}`} onClick={() => setMenu(false)} className="rounded-lg px-3 py-2 font-semibold hover:bg-orange-50">{x}</a>)}<div className="mt-2 grid grid-cols-2 gap-3"><button className="rounded-lg border border-navy py-2 font-bold text-navy">Log in</button><button className="rounded-lg bg-navy py-2 font-bold text-white">Sign up</button></div></div></div>}
+      {menu && <div className="border-t bg-white px-4 py-4 sm:hidden"><div className="grid gap-2">{['About','Organisations','Impact','FAQ'].map(x => <a key={x} href={`#${x.toLowerCase()}`} onClick={() => setMenu(false)} className="rounded-lg px-3 py-2 font-semibold hover:bg-orange-50">{x}</a>)}<div className="mt-2 grid grid-cols-2 gap-3"><button onClick={() => { setMenu(false); setAuthMode('login') }} className="rounded-lg border border-navy bg-white py-2 font-bold text-navy transition-all duration-300 hover:border-transparent hover:bg-gradient-to-r hover:from-orange-100 hover:via-white hover:to-green-100 hover:shadow-md">Log in</button><button onClick={() => { setMenu(false); setAuthMode('signup') }} className="rounded-lg border border-navy bg-navy py-2 font-bold text-white transition-all duration-300 hover:border-orange-200 hover:bg-gradient-to-r hover:from-saffron hover:via-white hover:to-india-green hover:text-navy hover:shadow-md">Sign up</button></div></div></div>}
     </header>
 
     <main id="main">
