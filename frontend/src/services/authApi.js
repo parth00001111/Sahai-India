@@ -14,13 +14,19 @@ async function authRequest(endpoint, payload) {
     throw new Error('Unable to reach the Sahai India server. Please confirm the backend is running on port 5000.')
   }
 
-  const result = await response.json().catch(() => ({}))
+  const result = await response.json().catch(() => null)
 
   if (!response.ok) {
-    throw new Error(result.message || 'Authentication failed. Please check your details and try again.')
+    if (result?.message) throw new Error(result.message)
+
+    if (response.status >= 500) {
+      throw new Error('The Sahai India server is unavailable right now. Please confirm the backend is running on port 5000.')
+    }
+
+    throw new Error('Authentication failed. Please check your details and try again.')
   }
 
-  return result
+  return result || {}
 }
 
 export const signIn = (credentials) => authRequest('signin', credentials)
