@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import logo from './assets/sahai-india-logo.png'
+import modiPoster from './assets/sahai-india-modi-poster.png'
 
 const slides = [
+  { tag: 'Seva is the strength of a nation', title: 'Together, we lift every citizen', text: 'Sahai India connects people in need with compassionate volunteers, trusted organisations, and essential services—because progress begins when no one is left behind.', image: modiPoster, dark: true, note: 'Concept visual • No official endorsement is implied' },
   { tag: 'Seva • Sahyog • Samarthan', title: 'Support that reaches every Indian', text: 'Discover trusted organisations, public services, and community programmes—all in one helpful place.', gradient: 'from-orange-100 via-white to-green-100', dark: false },
   { tag: 'Community first', title: 'Find the right help, closer to home', text: 'Connect with organisations working across health, education, livelihoods, women’s safety, and disaster relief.', gradient: 'from-[#0a3472] via-[#12509a] to-[#138808]', dark: true },
   { tag: 'Together for India', title: 'Turn compassion into meaningful action', text: 'Volunteer, support a cause, or help someone discover services that can make a lasting difference.', gradient: 'from-[#138808] via-[#e3a51d] to-[#f97316]', dark: true },
@@ -64,12 +66,13 @@ function App() {
       <section id="about" className="bg-slate-50 p-3 sm:p-5 lg:p-7" aria-label="Featured programmes">
         <div className="relative mx-auto min-h-[500px] max-w-[1440px] overflow-hidden rounded-[1.75rem] bg-navy shadow-xl sm:min-h-[560px]">
           {slides.map((item,i) => <article key={item.title} aria-hidden={slide !== i} className={`absolute inset-0 transition-opacity duration-700 ${slide === i ? 'z-10 opacity-100' : 'pointer-events-none opacity-0'}`}>
-            <div className={`absolute inset-0 bg-gradient-to-br ${item.gradient}`}/><div className="fine-grid absolute inset-0"/><div className="absolute -right-20 -top-20 h-96 w-96 rounded-full border-[70px] border-white/10"/><div className="absolute -bottom-32 right-[8%] h-80 w-80 rounded-full bg-white/10"/>
+            {item.image ? <div className="absolute inset-0 bg-cover bg-[68%_center] sm:bg-center" style={{ backgroundImage: `url(${item.image})` }}/> : <div className={`absolute inset-0 bg-gradient-to-br ${item.gradient}`}/>}<div className={`absolute inset-0 ${item.image ? 'bg-gradient-to-r from-[#06172f]/95 via-[#06172f]/60 to-transparent' : 'fine-grid'}`}/><div className="absolute -right-20 -top-20 h-96 w-96 rounded-full border-[70px] border-white/10"/><div className="absolute -bottom-32 right-[8%] h-80 w-80 rounded-full bg-white/10"/>
             <div className="relative z-10 flex min-h-[500px] items-center px-7 py-16 sm:min-h-[560px] sm:px-14 lg:px-20"><div className={`max-w-2xl ${item.dark ? 'text-white' : 'text-navy'}`}>
               <p className="mb-6 inline-flex items-center gap-3 rounded-full bg-white/90 px-4 py-2 text-xs font-extrabold uppercase tracking-[.15em] text-navy shadow"><span className="h-2 w-2 rounded-full bg-saffron"/>{item.tag}</p>
               <h1 className="font-serif text-4xl font-bold leading-[1.08] tracking-tight sm:text-6xl lg:text-7xl">{item.title}</h1>
               <p className={`mt-6 max-w-xl text-base leading-7 sm:text-lg ${item.dark ? 'text-white/85' : 'text-slate-700'}`}>{item.text}</p>
               <div className="mt-9 flex flex-wrap gap-3"><a href="#organisations" className="rounded-lg bg-navy px-6 py-3.5 text-sm font-bold text-white shadow-lg hover:bg-blue-950">Find support →</a><a href="#connect" className={`rounded-lg border px-6 py-3.5 text-sm font-bold ${item.dark ? 'border-white/50 bg-white/10' : 'border-navy/30 bg-white/70 text-navy'}`}>Join as an organisation</a></div>
+              {item.note && <p className="mt-5 text-xs font-semibold tracking-wide text-white/70">{item.note}</p>}
             </div></div>
           </article>)}
           <div className="absolute bottom-6 right-6 z-20 flex items-center gap-2 rounded-full bg-white/95 p-2 shadow-lg"><button onClick={() => move(-1)} aria-label="Previous slide" className="h-10 w-10 rounded-full text-navy hover:bg-blue-50">←</button>{slides.map((_,i) => <button key={i} onClick={() => setSlide(i)} aria-label={`Go to slide ${i+1}`} className={`h-2.5 rounded-full transition-all ${slide === i ? 'w-8 bg-saffron' : 'w-2.5 bg-slate-300'}`}/>)}<button onClick={() => move(1)} aria-label="Next slide" className="h-10 w-10 rounded-full text-navy hover:bg-blue-50">→</button></div>
