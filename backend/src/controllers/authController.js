@@ -22,7 +22,7 @@ const generateToken = (user) => {
 
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV,
+  secure: process.env.NODE_ENV === "production",
   sameSite: "lax",
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
@@ -41,14 +41,26 @@ export const signup = async (req, res) => {
   const { email, password, phone, userType } = result.data;
 
   try {
-    const userExist = await prisma.user.findUnique({
-      where: { email },
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [{ email }, { phone }],
+      },
+      select: {
+        email: true,
+        phone: true,
+      },
     });
 
-    if (userExist) {
+    if (existingUser) {
+      const duplicateField = existingUser.email === email ? "email" : "phone";
+
       return res.status(409).json({
         success: false,
-        message: "User already exists, please signin",
+        field: duplicateField,
+        message:
+          duplicateField === "email"
+            ? "An account with this email already exists. Please sign in."
+            : "This mobile number is already registered. Please sign in or use another number.",
       });
     }
 
@@ -73,17 +85,25 @@ export const signup = async (req, res) => {
     
     const token = generateToken(newUser);
 
-    return res.cookie("token", token, cookieOptions).json({
+    return res.status(201).cookie("token", token, cookieOptions).json({
       success: true,
       message: "Signup successfully",
       data: newUser,
     });
   } catch (err) {
-    console.log(err.message);
+    // The pre-check above improves the common response, while this also covers
+    // two signup requests racing each other before either insert completes.
+    if (err?.code === "P2002") {
+      return res.status(409).json({
+        success: false,
+        message: "An account with this email or mobile number already exists. Please sign in.",
+      });
+    }
+
+    console.error("Signup failed:", err);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
-      error: err.message,
+      message: "We could not create your account right now. Please try again shortly.",
     });
   }
 };
