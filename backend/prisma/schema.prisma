@@ -14,6 +14,15 @@ enum OrgType {
   foodbank
 }
 
+enum OrgLegalStructure {
+  ngo_trust
+  section8
+  society
+  govt_body
+  social_enterprise
+  other
+}
+
 enum VerificationStatus {
   pending
   verified
@@ -116,11 +125,37 @@ model Organization {
   id                 String             @id @default(uuid())
   name               String
   type               OrgType
+  legalStructure     OrgLegalStructure
   verificationStatus VerificationStatus @default(pending)
+
+  registrationNumber String
+  yearEstablished    Int
+  website            String?
+  description        String?
+
+  contactName        String
+  designation        String
+  email              String
   contactPhone       String?
+
   address            String?
+  city               String
+  district           String
+  state              String
+  pincode            String
   lat                Float?
   lng                Float?
+
+  serviceAreas       String?
+  beneficiariesCount Int?
+  focusAreas         String[]
+
+  registrationCertUrl String?
+  panDocUrl           String?
+  addressProofUrl     String?
+  authLetterUrl       String?
+  logoUrl             String?
+
   verifiedBy         String?
   verifiedByUser     User?              @relation("VerifiedBy", fields: [verifiedBy], references: [id])
   createdAt          DateTime           @default(now())
