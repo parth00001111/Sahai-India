@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import logo from '../assets/sahai-india-logo.png'
 import { signIn, signUp } from '../services/authApi.js'
+import OrganisationOnboarding from './OrganisationOnboarding.jsx'
 
 const emptyForm = {
   email: '',
@@ -69,6 +70,9 @@ function AuthPage({ initialMode, onBack }) {
   }
 
   if (success) {
+    const isOrganisation = success.user?.userType === 'org_staff' || (isSignup && form.userType === 'org_staff')
+    if (isOrganisation) return <OrganisationOnboarding user={success.user} onBack={onBack} />
+
     return <main className="grid min-h-screen place-items-center bg-[#fffaf2] px-4 py-10">
       <section className="w-full max-w-md rounded-3xl border border-green-100 bg-white p-8 text-center shadow-xl sm:p-10">
         <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-green-50 text-3xl text-india-green">✓</span>
