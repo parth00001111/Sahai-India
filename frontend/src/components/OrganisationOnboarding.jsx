@@ -1,11 +1,19 @@
 import { useId, useState } from 'react'
 import logo from '../assets/sahai-india-logo.png'
+import { createOrganisation } from '../services/organisationApi.js'
 
-const organisationTypes = ['NGO / Trust', 'Section 8 company', 'Society', 'Government body', 'Social enterprise', 'Other']
+const organisationTypes = [
+  ['ngo', 'NGO / nonprofit'], ['govt', 'Government organisation'], ['hospital', 'Hospital / health provider'],
+  ['shelter', 'Shelter'], ['foodbank', 'Food bank'],
+]
+const legalStructures = [
+  ['ngo_trust', 'NGO / Trust'], ['section8', 'Section 8 company'], ['society', 'Registered society'],
+  ['govt_body', 'Government body'], ['social_enterprise', 'Social enterprise'], ['other', 'Other'],
+]
 const focusAreas = ['Education', 'Healthcare', 'Women & child welfare', 'Livelihoods', 'Disaster relief', 'Elder care', 'Environment', 'Legal aid']
 
 const initialForm = {
-  organisationName: '', legalName: '', organisationType: '', registrationNumber: '', yearEstablished: '',
+  organisationName: '', organisationType: '', legalStructure: '', registrationNumber: '', yearEstablished: '',
   website: '', description: '', contactName: '', designation: '', email: '', phone: '', alternatePhone: '',
   address: '', city: '', district: '', state: '', pincode: '', serviceAreas: '', beneficiaries: '',
   focusAreas: [], registrationCertificate: null, panDocument: null, addressProof: null, logo: null,
@@ -36,7 +44,7 @@ function OrganisationOnboarding({ user, onBack }) {
   const uploadPrefix = useId()
   const [form, setForm] = useState({ ...initialForm, email: user?.email || '' })
   const [error, setError] = useState('')
-  const [submitted, setSubmitted] = useState(false)
+  const [submission, setSubmission] = useState(null)
   const [saving, setSaving] = useState(false)
 
   const inputClass = 'w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-navy focus:ring-4 focus:ring-blue-100'
@@ -68,9 +76,9 @@ function OrganisationOnboarding({ user, onBack }) {
     setError('')
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
-    const requiredFields = ['organisationName', 'legalName', 'organisationType', 'registrationNumber', 'yearEstablished', 'description', 'contactName', 'designation', 'email', 'phone', 'address', 'city', 'district', 'state', 'pincode', 'serviceAreas']
+    const requiredFields = ['organisationName', 'organisationType', 'legalStructure', 'registrationNumber', 'yearEstablished', 'description', 'contactName', 'designation', 'email', 'phone', 'address', 'city', 'district', 'state', 'pincode', 'serviceAreas']
     if (requiredFields.some((field) => !String(form[field]).trim())) return setError('Please complete all fields marked with an asterisk.')
     if (!/^\S+@\S+\.\S+$/.test(form.email)) return setError('Enter a valid official email address.')
     if (!/^\d{10}$/.test(form.phone)) return setError('Enter a valid 10-digit contact number.')
@@ -80,27 +88,35 @@ function OrganisationOnboarding({ user, onBack }) {
     if (!form.declaration) return setError('Please confirm the declaration before submitting.')
 
     setSaving(true)
-    window.setTimeout(() => {
+    setError('')
+    try {
+      const result = await createOrganisation(form)
       sessionStorage.setItem('sahai-organisation-onboarding', JSON.stringify({
         organisationName: form.organisationName,
         registrationNumber: form.registrationNumber,
+        id: result.data?.id,
         submittedAt: new Date().toISOString(),
-        status: 'pending_review',
+        status: result.data?.verificationStatus || 'pending',
       }))
-      setSaving(false)
-      setSubmitted(true)
+      setSubmission(result)
       window.scrollTo({ top: 0, behavior: 'smooth' })
-    }, 700)
+    } catch (requestError) {
+      setError(requestError.message)
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+    } finally {
+      setSaving(false)
+    }
   }
 
-  if (submitted) {
+  if (submission) {
+    const status = submission.data?.verificationStatus || 'pending'
     return <main className="grid min-h-screen place-items-center bg-[#f7f9fc] px-4 py-12">
       <section className="w-full max-w-xl rounded-3xl border border-green-100 bg-white p-8 text-center shadow-xl sm:p-12">
         <span className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-green-50 text-4xl text-india-green">✓</span>
         <p className="mt-7 text-xs font-extrabold uppercase tracking-[.2em] text-india-green">Application submitted</p>
         <h1 className="mt-3 font-serif text-3xl font-bold text-navy sm:text-4xl">Your organisation is under review</h1>
-        <p className="mx-auto mt-4 max-w-md leading-7 text-slate-600">The Sahai India admin team will review <strong>{form.organisationName}</strong> and its documents. Updates will be sent to {form.email}.</p>
-        <div className="mt-7 rounded-2xl bg-slate-50 p-5 text-left text-sm"><div className="flex justify-between gap-4"><span className="text-slate-500">Application status</span><strong className="text-amber-700">Pending review</strong></div><div className="mt-3 flex justify-between gap-4"><span className="text-slate-500">Typical review time</span><strong className="text-navy">3–5 working days</strong></div></div>
+        <p className="mx-auto mt-4 max-w-md leading-7 text-slate-600">{submission.message} Updates for <strong>{form.organisationName}</strong> will be sent to {form.email}.</p>
+        <div className="mt-7 rounded-2xl bg-slate-50 p-5 text-left text-sm"><div className="flex justify-between gap-4"><span className="text-slate-500">Application status</span><strong className={status === 'verified' ? 'text-india-green' : 'text-amber-700'}>{status === 'verified' ? 'Verified' : 'Pending review'}</strong></div><div className="mt-3 flex justify-between gap-4"><span className="text-slate-500">Application ID</span><strong className="max-w-[220px] truncate text-navy">{submission.data?.id || 'Created'}</strong></div></div>
         <button onClick={onBack} className="mt-8 w-full rounded-xl bg-navy px-5 py-3.5 font-bold text-white transition hover:bg-blue-950">Continue to homepage</button>
       </section>
     </main>
@@ -122,14 +138,14 @@ function OrganisationOnboarding({ user, onBack }) {
       </aside>
 
       <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-        <div className="rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4 text-sm leading-6 text-navy"><strong>Account created successfully.</strong> Complete this one-time form to submit your organisation for admin approval.</div>
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4 text-sm leading-6 text-navy"><strong>Partner application.</strong> Complete this form to submit your organisation and verification documents to Sahai India.</div>
 
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
           <div className="mb-7 flex items-start gap-4"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-orange-50 font-bold text-orange-700">01</span><div><h2 className="font-serif text-2xl font-bold text-navy">Organisation details</h2><p className="mt-1 text-sm text-slate-500">Use information exactly as shown on registration records.</p></div></div>
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Organisation name" required><input name="organisationName" value={form.organisationName} onChange={updateField} placeholder="Name used publicly" className={inputClass} /></Field>
-            <Field label="Registered legal name" required><input name="legalName" value={form.legalName} onChange={updateField} placeholder="As per certificate" className={inputClass} /></Field>
-            <Field label="Organisation type" required><select name="organisationType" value={form.organisationType} onChange={updateField} className={inputClass}><option value="">Select type</option>{organisationTypes.map((type) => <option key={type}>{type}</option>)}</select></Field>
+            <Field label="Organisation type" required><select name="organisationType" value={form.organisationType} onChange={updateField} className={inputClass}><option value="">Select type</option>{organisationTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+            <Field label="Legal structure" required><select name="legalStructure" value={form.legalStructure} onChange={updateField} className={inputClass}><option value="">Select legal structure</option>{legalStructures.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
             <Field label="Registration number" required><input name="registrationNumber" value={form.registrationNumber} onChange={updateField} placeholder="e.g. DL/2020/001234" className={inputClass} /></Field>
             <Field label="Year established" required><input name="yearEstablished" type="number" min="1800" max={new Date().getFullYear()} value={form.yearEstablished} onChange={updateField} placeholder="YYYY" className={inputClass} /></Field>
             <Field label="Website or social profile" hint="Optional"><input name="website" type="url" value={form.website} onChange={updateField} placeholder="https://yourorganisation.org" className={inputClass} /></Field>

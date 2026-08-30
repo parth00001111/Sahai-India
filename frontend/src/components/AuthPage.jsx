@@ -11,7 +11,7 @@ const emptyForm = {
   userType: 'citizen',
 }
 
-function AuthPage({ initialMode, onBack }) {
+function AuthPage({ initialMode, onBack, onOrganisationOnboarding }) {
   const [mode, setMode] = useState(initialMode)
   const [form, setForm] = useState(emptyForm)
   const [showPassword, setShowPassword] = useState(false)
@@ -61,7 +61,7 @@ function AuthPage({ initialMode, onBack }) {
 
       const user = result.data || {}
       sessionStorage.setItem('sahai-user', JSON.stringify({ id: user.id, email: user.email, userType: user.userType }))
-      setSuccess({ message: result.message || (isSignup ? 'Account created successfully.' : 'Signed in successfully.'), user })
+      setSuccess({ message: result.message || (isSignup ? 'Account created successfully.' : 'Signed in successfully.'), user, isSignup })
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -80,7 +80,7 @@ function AuthPage({ initialMode, onBack }) {
         <h1 className="mt-3 font-serif text-3xl font-bold text-navy">Welcome to Sahai India</h1>
         <p className="mt-3 leading-7 text-slate-600">{success.message}</p>
         {success.user?.email && <p className="mt-2 text-sm font-semibold text-slate-500">{success.user.email}</p>}
-        <button onClick={onBack} className="mt-8 w-full rounded-xl bg-navy px-5 py-3.5 font-bold text-white transition hover:bg-blue-950">Continue to homepage</button>
+        <button onClick={() => success.isSignup && success.user?.userType === 'org_staff' ? onOrganisationOnboarding?.(success.user) : onBack()} className="mt-8 w-full rounded-xl bg-navy px-5 py-3.5 font-bold text-white transition hover:bg-blue-950">{success.isSignup && success.user?.userType === 'org_staff' ? 'Complete organisation onboarding' : 'Continue to homepage'}</button>
       </section>
     </main>
   }
