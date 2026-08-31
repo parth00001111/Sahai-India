@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import logo from './assets/sahai-india-logo.png'
 import modiPoster from './assets/sahai-india-modi-poster.png'
 import AuthPage from './components/AuthPage.jsx'
+import OrganisationOnboarding from './components/OrganisationOnboarding.jsx'
+import OrganisationDashboard from './components/OrganisationDashboard.jsx'
+import { getMyOrganisation } from './services/organisationApi.js'
 
 const slides = [
   { tag: 'Seva is the strength of a nation', title: 'Together, we lift every citizen', text: 'Sahai India connects people in need with compassionate volunteers, trusted organisations, and essential services—because progress begins when no one is left behind.', image: modiPoster, dark: true, note: 'Concept visual • No official endorsement is implied' },
@@ -43,16 +46,77 @@ function Heading({ label, title, text, left = false }) {
   return <div className={`${left ? '' : 'mx-auto text-center'} mb-10 max-w-2xl`}><p className="mb-3 text-xs font-extrabold uppercase tracking-[.22em] text-orange-700">{label}</p><h2 className="font-serif text-3xl font-bold tracking-tight text-navy sm:text-4xl">{title}</h2>{text && <p className="mt-4 leading-7 text-slate-600">{text}</p>}</div>
 }
 
+function readSavedOrganisation(user = null) {
+  const accountKey = user?.id || user?.email
+  if (accountKey) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`sahai-organisation-onboarding:${accountKey}`))
+      if (saved) return saved
+    } catch { /* Ignore invalid local data. */ }
+  }
+
+  try {
+    const legacy = JSON.parse(sessionStorage.getItem('sahai-organisation-onboarding'))
+    const belongsToUser = !user || !legacy?.accountEmail || legacy.accountEmail === user.email
+    if (legacy && belongsToUser) {
+      if (accountKey) localStorage.setItem(`sahai-organisation-onboarding:${accountKey}`, JSON.stringify(legacy))
+      return legacy
+    }
+  } catch { /* Ignore invalid session data. */ }
+
+  return null
+}
+
 function App() {
   const [slide, setSlide] = useState(0)
   const [menu, setMenu] = useState(false)
   const [authMode, setAuthMode] = useState(null)
+  const [onboardingUser, setOnboardingUser] = useState(null)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [dashboardOrganisation, setDashboardOrganisation] = useState(() => readSavedOrganisation())
+  const [showDashboard, setShowDashboard] = useState(false)
+  const [workspaceError, setWorkspaceError] = useState('')
   useEffect(() => { const id = setInterval(() => setSlide((n) => (n + 1) % slides.length), 6500); return () => clearInterval(id) }, [])
   const move = (n) => setSlide((current) => (current + n + slides.length) % slides.length)
 
-  if (authMode) return <AuthPage initialMode={authMode} onBack={() => setAuthMode(null)} />
+  const openOnboarding = async (user = null) => {
+    let savedUser = user
+    if (!savedUser) {
+      try { savedUser = JSON.parse(sessionStorage.getItem('sahai-user')) } catch { savedUser = null }
+    }
+    setWorkspaceError('')
+
+    if (savedUser?.userType === 'org_staff') {
+      try {
+        const databaseOrganisation = await getMyOrganisation()
+        if (databaseOrganisation) {
+          setDashboardOrganisation(databaseOrganisation)
+          setShowDashboard(true)
+          return true
+        }
+      } catch (requestError) {
+        setWorkspaceError(requestError.message)
+        return false
+      }
+    }
+
+    setOnboardingUser(savedUser)
+    setShowOnboarding(true)
+    return true
+  }
+
+  const refreshDashboard = async () => {
+    const databaseOrganisation = await getMyOrganisation()
+    if (databaseOrganisation) setDashboardOrganisation(databaseOrganisation)
+    return databaseOrganisation
+  }
+
+  if (showDashboard && dashboardOrganisation) return <OrganisationDashboard organisation={dashboardOrganisation} onBack={() => setShowDashboard(false)} onRefresh={refreshDashboard} />
+  if (showOnboarding) return <OrganisationOnboarding user={onboardingUser} onBack={() => setShowOnboarding(false)} onComplete={(application) => { setDashboardOrganisation(application); setShowOnboarding(false); setShowDashboard(true) }} />
+  if (authMode) return <AuthPage initialMode={authMode} onBack={() => setAuthMode(null)} onOrganisationOnboarding={async (user) => { const opened = await openOnboarding(user); if (opened) setAuthMode(null) }} />
 
   return <div className="min-h-screen overflow-x-hidden bg-[#fffdf9] text-ink">
+    {workspaceError && <div role="alert" className="fixed inset-x-4 top-4 z-[100] mx-auto flex max-w-xl items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 shadow-xl"><span>{workspaceError}</span><button onClick={() => setWorkspaceError('')} aria-label="Dismiss message" className="text-lg">×</button></div>}
     <div className="h-1.5 bg-gradient-to-r from-saffron via-white to-india-green" />
     <div className="border-b border-slate-200 bg-slate-50 text-[11px] text-slate-600 sm:text-xs"><div className="mx-auto flex max-w-7xl justify-between px-4 py-2 sm:px-6"><span>भारत के लोगों के लिए • For the people of India</span><div className="flex gap-4"><a href="#main">Skip to content</a><span>हिंदी</span><span className="font-bold text-navy">A+</span></div></div></div>
 
@@ -75,7 +139,7 @@ function App() {
               <p className="mb-6 inline-flex items-center gap-3 rounded-full bg-white/90 px-4 py-2 text-xs font-extrabold uppercase tracking-[.15em] text-navy shadow"><span className="h-2 w-2 rounded-full bg-saffron"/>{item.tag}</p>
               <h1 className="font-serif text-4xl font-bold leading-[1.08] tracking-tight sm:text-6xl lg:text-7xl">{item.title}</h1>
               <p className={`mt-6 max-w-xl text-base leading-7 sm:text-lg ${item.dark ? 'text-white/85' : 'text-slate-700'}`}>{item.text}</p>
-              <div className="mt-9 flex flex-wrap gap-3"><a href="#organisations" className="rounded-lg bg-navy px-6 py-3.5 text-sm font-bold text-white shadow-lg hover:bg-blue-950">Find support →</a><a href="#connect" className={`rounded-lg border px-6 py-3.5 text-sm font-bold ${item.dark ? 'border-white/50 bg-white/10' : 'border-navy/30 bg-white/70 text-navy'}`}>Join as an organisation</a></div>
+              <div className="mt-9 flex flex-wrap gap-3"><a href="#organisations" className="rounded-lg bg-navy px-6 py-3.5 text-sm font-bold text-white shadow-lg hover:bg-blue-950">Find support →</a><button type="button" onClick={() => openOnboarding()} className={`rounded-lg border px-6 py-3.5 text-sm font-bold ${item.dark ? 'border-white/50 bg-white/10' : 'border-navy/30 bg-white/70 text-navy'}`}>Join as an organisation</button></div>
               {item.note && <p className="mt-5 text-xs font-semibold tracking-wide text-white/70">{item.note}</p>}
             </div></div>
           </article>)}
@@ -90,7 +154,7 @@ function App() {
       <section id="faq" className="bg-[#fffaf2] px-4 py-20 sm:px-6 lg:px-8 lg:py-28"><div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[.75fr_1.25fr]"><div><Heading label="Help centre" title="Frequently asked questions" text="Quick answers about the platform, access, and partnerships." left/><div className="rounded-2xl border border-orange-100 bg-white p-6 shadow-sm"><p className="font-bold text-navy">Still need help?</p><p className="mt-2 text-sm text-slate-600">Our support team can guide you to the right resource.</p><a href="mailto:help@sahaiindia.in" className="mt-4 inline-block text-sm font-bold text-orange-700">Contact support →</a></div></div><div className="space-y-3">{faqs.map(([q,a],i) => <details key={q} open={i === 0} className="group rounded-xl border border-slate-200 bg-white shadow-sm"><summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 font-bold text-navy"><span>{q}</span><span className="grid h-8 w-8 place-items-center rounded-full bg-orange-50 text-xl text-saffron transition group-open:rotate-45">+</span></summary><p className="px-5 pb-5 pr-14 text-sm leading-7 text-slate-600">{a}</p></details>)}</div></div></section>
     </main>
 
-    <footer id="connect" className="bg-[#06172f] text-white"><div className="border-b border-white/10 px-4 py-14 sm:px-6 lg:px-8"><div className="mx-auto grid max-w-7xl gap-10 sm:grid-cols-2 lg:grid-cols-4"><div><div className="flex items-center gap-3"><span className="rounded-xl bg-white p-1"><img src={logo} alt="" className="h-14 w-14 object-contain"/></span><span><strong className="block font-serif text-xl">Sahai India</strong><small className="uppercase tracking-[.15em] text-blue-200">Together, we serve</small></span></div><p className="mt-5 text-sm leading-6 text-slate-300">Connecting people, organisations, and essential services to build a more supported India.</p><p className="mt-4 text-xs text-slate-400">Not an official Government of India website unless expressly stated and authorised.</p></div><div><h3 className="font-bold">Explore</h3><div className="mt-5 grid gap-3 text-sm text-slate-300">{['About Sahai India','Find an organisation','Volunteer with us','Partner onboarding','Stories of impact'].map(x => <a key={x} href="#" className="hover:text-orange-300">{x}</a>)}</div></div><div><h3 className="font-bold">Useful government portals</h3><div className="mt-5 grid gap-3 text-sm text-slate-300">{portals.map(([name,url]) => <a key={name} href={url} target="_blank" rel="noreferrer" className="hover:text-orange-300">{name} ↗</a>)}</div></div><div><h3 className="font-bold">Contact & support</h3><div className="mt-5 grid gap-3 text-sm text-slate-300"><a href="mailto:help@sahaiindia.in">help@sahaiindia.in</a><a href="tel:+911800000000">1800-000-000</a><span>Monday–Saturday, 9 AM–6 PM</span><span>New Delhi, India</span></div><button className="mt-6 rounded-lg bg-saffron px-5 py-3 text-sm font-bold">Get help now</button></div></div></div><div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-xs text-slate-400 sm:flex-row sm:justify-between"><p>© {new Date().getFullYear()} Sahai India. All rights reserved.</p><div className="flex flex-wrap gap-5"><a href="#">Privacy policy</a><a href="#">Terms of use</a><a href="#">Accessibility</a><a href="#">Sitemap</a></div></div></footer>
+    <footer id="connect" className="bg-[#06172f] text-white"><div className="border-b border-white/10 px-4 py-14 sm:px-6 lg:px-8"><div className="mx-auto grid max-w-7xl gap-10 sm:grid-cols-2 lg:grid-cols-4"><div><div className="flex items-center gap-3"><span className="rounded-xl bg-white p-1"><img src={logo} alt="" className="h-14 w-14 object-contain"/></span><span><strong className="block font-serif text-xl">Sahai India</strong><small className="uppercase tracking-[.15em] text-blue-200">Together, we serve</small></span></div><p className="mt-5 text-sm leading-6 text-slate-300">Connecting people, organisations, and essential services to build a more supported India.</p><p className="mt-4 text-xs text-slate-400">Not an official Government of India website unless expressly stated and authorised.</p></div><div><h3 className="font-bold">Explore</h3><div className="mt-5 grid gap-3 text-left text-sm text-slate-300">{['About Sahai India','Find an organisation','Volunteer with us','Partner onboarding','Stories of impact'].map(x => x === 'Partner onboarding' ? <button key={x} type="button" onClick={() => openOnboarding()} className="w-fit hover:text-orange-300">{x}</button> : <a key={x} href="#" className="hover:text-orange-300">{x}</a>)}</div></div><div><h3 className="font-bold">Useful government portals</h3><div className="mt-5 grid gap-3 text-sm text-slate-300">{portals.map(([name,url]) => <a key={name} href={url} target="_blank" rel="noreferrer" className="hover:text-orange-300">{name} ↗</a>)}</div></div><div><h3 className="font-bold">Contact & support</h3><div className="mt-5 grid gap-3 text-sm text-slate-300"><a href="mailto:help@sahaiindia.in">help@sahaiindia.in</a><a href="tel:+911800000000">1800-000-000</a><span>Monday–Saturday, 9 AM–6 PM</span><span>New Delhi, India</span></div><button className="mt-6 rounded-lg bg-saffron px-5 py-3 text-sm font-bold">Get help now</button></div></div></div><div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-xs text-slate-400 sm:flex-row sm:justify-between"><p>© {new Date().getFullYear()} Sahai India. All rights reserved.</p><div className="flex flex-wrap gap-5"><a href="#">Privacy policy</a><a href="#">Terms of use</a><a href="#">Accessibility</a><a href="#">Sitemap</a></div></div></footer>
   </div>
 }
 
