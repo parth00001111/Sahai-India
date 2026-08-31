@@ -1,5 +1,15 @@
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/$/, '')
 
+export function normaliseOrganisation(organization) {
+  if (!organization) return null
+  return {
+    ...organization,
+    organisationName: organization.organisationName || organization.name,
+    status: organization.status || organization.verificationStatus || 'pending',
+    submittedAt: organization.submittedAt || organization.createdAt,
+  }
+}
+
 function extractErrorMessage(result) {
   if (typeof result?.message === 'string') return result.message
 
@@ -69,5 +79,22 @@ export async function createOrganisation(form) {
 
   const result = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(extractErrorMessage(result))
+  if (result.data) result.data = normaliseOrganisation(result.data)
   return result
+}
+
+export async function getMyOrganisation() {
+  let response
+  try {
+    response = await fetch(`${API_BASE_URL}/organizations/me`, {
+      credentials: 'include',
+    })
+  } catch {
+    throw new Error('Unable to reach the Sahai India server. Confirm the backend is running and try again.')
+  }
+
+  const result = await response.json().catch(() => ({}))
+  if (response.status === 404) return null
+  if (!response.ok) throw new Error(extractErrorMessage(result))
+  return normaliseOrganisation(result.data)
 }

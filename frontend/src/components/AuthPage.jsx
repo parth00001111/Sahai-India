@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import logo from '../assets/sahai-india-logo.png'
 import { signIn, signUp } from '../services/authApi.js'
-import OrganisationOnboarding from './OrganisationOnboarding.jsx'
 
 const emptyForm = {
   email: '',
@@ -71,7 +70,6 @@ function AuthPage({ initialMode, onBack, onOrganisationOnboarding }) {
 
   if (success) {
     const isOrganisation = success.user?.userType === 'org_staff' || (isSignup && form.userType === 'org_staff')
-    if (isOrganisation) return <OrganisationOnboarding user={success.user} onBack={onBack} />
 
     return <main className="grid min-h-screen place-items-center bg-[#fffaf2] px-4 py-10">
       <section className="w-full max-w-md rounded-3xl border border-green-100 bg-white p-8 text-center shadow-xl sm:p-10">
@@ -80,7 +78,7 @@ function AuthPage({ initialMode, onBack, onOrganisationOnboarding }) {
         <h1 className="mt-3 font-serif text-3xl font-bold text-navy">Welcome to Sahai India</h1>
         <p className="mt-3 leading-7 text-slate-600">{success.message}</p>
         {success.user?.email && <p className="mt-2 text-sm font-semibold text-slate-500">{success.user.email}</p>}
-        <button onClick={() => success.isSignup && success.user?.userType === 'org_staff' ? onOrganisationOnboarding?.(success.user) : onBack()} className="mt-8 w-full rounded-xl bg-navy px-5 py-3.5 font-bold text-white transition hover:bg-blue-950">{success.isSignup && success.user?.userType === 'org_staff' ? 'Complete organisation onboarding' : 'Continue to homepage'}</button>
+        <button onClick={() => isOrganisation ? onOrganisationOnboarding?.(success.user) : onBack()} className="mt-8 w-full rounded-xl bg-navy px-5 py-3.5 font-bold text-white transition hover:bg-blue-950">{isOrganisation ? (success.isSignup ? 'Complete organisation onboarding' : 'Open organisation workspace') : 'Continue to homepage'}</button>
       </section>
     </main>
   }

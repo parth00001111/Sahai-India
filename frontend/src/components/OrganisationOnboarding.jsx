@@ -40,7 +40,7 @@ function DocumentUpload({ id, label, help, required, file, onChange, accept = '.
   </label>
 }
 
-function OrganisationOnboarding({ user, onBack }) {
+function OrganisationOnboarding({ user, onBack, onComplete }) {
   const uploadPrefix = useId()
   const [form, setForm] = useState({ ...initialForm, email: user?.email || '' })
   const [error, setError] = useState('')
@@ -91,14 +91,24 @@ function OrganisationOnboarding({ user, onBack }) {
     setError('')
     try {
       const result = await createOrganisation(form)
-      sessionStorage.setItem('sahai-organisation-onboarding', JSON.stringify({
+      const application = {
+        ...result.data,
         organisationName: form.organisationName,
         registrationNumber: form.registrationNumber,
+        email: form.email,
+        userId: user?.id,
+        accountEmail: user?.email,
+        focusAreas: form.focusAreas,
+        serviceAreas: form.serviceAreas,
         id: result.data?.id,
-        submittedAt: new Date().toISOString(),
-        status: result.data?.verificationStatus || 'pending',
-      }))
-      setSubmission(result)
+        submittedAt: result.data?.submittedAt || new Date().toISOString(),
+        status: result.data?.status || 'pending',
+      }
+      sessionStorage.setItem('sahai-organisation-onboarding', JSON.stringify(application))
+      const accountKey = user?.id || user?.email
+      if (accountKey) localStorage.setItem(`sahai-organisation-onboarding:${accountKey}`, JSON.stringify(application))
+      if (onComplete) onComplete(application)
+      else setSubmission(result)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (requestError) {
       setError(requestError.message)

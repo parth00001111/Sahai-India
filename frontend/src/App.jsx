@@ -3,6 +3,8 @@ import logo from './assets/sahai-india-logo.png'
 import modiPoster from './assets/sahai-india-modi-poster.png'
 import AuthPage from './components/AuthPage.jsx'
 import OrganisationOnboarding from './components/OrganisationOnboarding.jsx'
+import OrganisationDashboard from './components/OrganisationDashboard.jsx'
+import { getMyOrganisation } from './services/organisationApi.js'
 
 const slides = [
   { tag: 'Seva is the strength of a nation', title: 'Together, we lift every citizen', text: 'Sahai India connects people in need with compassionate volunteers, trusted organisations, and essential services—because progress begins when no one is left behind.', image: modiPoster, dark: true, note: 'Concept visual • No official endorsement is implied' },
@@ -44,28 +46,77 @@ function Heading({ label, title, text, left = false }) {
   return <div className={`${left ? '' : 'mx-auto text-center'} mb-10 max-w-2xl`}><p className="mb-3 text-xs font-extrabold uppercase tracking-[.22em] text-orange-700">{label}</p><h2 className="font-serif text-3xl font-bold tracking-tight text-navy sm:text-4xl">{title}</h2>{text && <p className="mt-4 leading-7 text-slate-600">{text}</p>}</div>
 }
 
+function readSavedOrganisation(user = null) {
+  const accountKey = user?.id || user?.email
+  if (accountKey) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`sahai-organisation-onboarding:${accountKey}`))
+      if (saved) return saved
+    } catch { /* Ignore invalid local data. */ }
+  }
+
+  try {
+    const legacy = JSON.parse(sessionStorage.getItem('sahai-organisation-onboarding'))
+    const belongsToUser = !user || !legacy?.accountEmail || legacy.accountEmail === user.email
+    if (legacy && belongsToUser) {
+      if (accountKey) localStorage.setItem(`sahai-organisation-onboarding:${accountKey}`, JSON.stringify(legacy))
+      return legacy
+    }
+  } catch { /* Ignore invalid session data. */ }
+
+  return null
+}
+
 function App() {
   const [slide, setSlide] = useState(0)
   const [menu, setMenu] = useState(false)
   const [authMode, setAuthMode] = useState(null)
   const [onboardingUser, setOnboardingUser] = useState(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [dashboardOrganisation, setDashboardOrganisation] = useState(() => readSavedOrganisation())
+  const [showDashboard, setShowDashboard] = useState(false)
+  const [workspaceError, setWorkspaceError] = useState('')
   useEffect(() => { const id = setInterval(() => setSlide((n) => (n + 1) % slides.length), 6500); return () => clearInterval(id) }, [])
   const move = (n) => setSlide((current) => (current + n + slides.length) % slides.length)
 
-  const openOnboarding = (user = null) => {
+  const openOnboarding = async (user = null) => {
     let savedUser = user
     if (!savedUser) {
       try { savedUser = JSON.parse(sessionStorage.getItem('sahai-user')) } catch { savedUser = null }
     }
+    setWorkspaceError('')
+
+    if (savedUser?.userType === 'org_staff') {
+      try {
+        const databaseOrganisation = await getMyOrganisation()
+        if (databaseOrganisation) {
+          setDashboardOrganisation(databaseOrganisation)
+          setShowDashboard(true)
+          return true
+        }
+      } catch (requestError) {
+        setWorkspaceError(requestError.message)
+        return false
+      }
+    }
+
     setOnboardingUser(savedUser)
     setShowOnboarding(true)
+    return true
   }
 
-  if (showOnboarding) return <OrganisationOnboarding user={onboardingUser} onBack={() => setShowOnboarding(false)} />
-  if (authMode) return <AuthPage initialMode={authMode} onBack={() => setAuthMode(null)} onOrganisationOnboarding={(user) => { setAuthMode(null); openOnboarding(user) }} />
+  const refreshDashboard = async () => {
+    const databaseOrganisation = await getMyOrganisation()
+    if (databaseOrganisation) setDashboardOrganisation(databaseOrganisation)
+    return databaseOrganisation
+  }
+
+  if (showDashboard && dashboardOrganisation) return <OrganisationDashboard organisation={dashboardOrganisation} onBack={() => setShowDashboard(false)} onRefresh={refreshDashboard} />
+  if (showOnboarding) return <OrganisationOnboarding user={onboardingUser} onBack={() => setShowOnboarding(false)} onComplete={(application) => { setDashboardOrganisation(application); setShowOnboarding(false); setShowDashboard(true) }} />
+  if (authMode) return <AuthPage initialMode={authMode} onBack={() => setAuthMode(null)} onOrganisationOnboarding={async (user) => { const opened = await openOnboarding(user); if (opened) setAuthMode(null) }} />
 
   return <div className="min-h-screen overflow-x-hidden bg-[#fffdf9] text-ink">
+    {workspaceError && <div role="alert" className="fixed inset-x-4 top-4 z-[100] mx-auto flex max-w-xl items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 shadow-xl"><span>{workspaceError}</span><button onClick={() => setWorkspaceError('')} aria-label="Dismiss message" className="text-lg">×</button></div>}
     <div className="h-1.5 bg-gradient-to-r from-saffron via-white to-india-green" />
     <div className="border-b border-slate-200 bg-slate-50 text-[11px] text-slate-600 sm:text-xs"><div className="mx-auto flex max-w-7xl justify-between px-4 py-2 sm:px-6"><span>भारत के लोगों के लिए • For the people of India</span><div className="flex gap-4"><a href="#main">Skip to content</a><span>हिंदी</span><span className="font-bold text-navy">A+</span></div></div></div>
 
