@@ -1,4 +1,4 @@
-import { createOrg, getAllOrg  } from "../controllers/organizationController.js"; 
+import { createOrg, getAllOrg, getMyOrganization, updateOrganizationVerification } from "../controllers/organizationController.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { Router } from 'express';
 import { upload } from "../middleware/multer.js";
@@ -8,6 +8,7 @@ const routes = new Router();
 
 routes.post(
   "/organizations",
+  verifyToken,
   upload.fields([
     { name: "registrationCertificate", maxCount: 1 },
     { name: "panDocument", maxCount: 1 },
@@ -17,6 +18,8 @@ routes.post(
   ]),
   createOrg
 );
+routes.get("/organizations/me", verifyToken, getMyOrganization);
+routes.patch("/organizations/:id/verification", verifyToken, updateOrganizationVerification);
 routes.get("/organizations", verifyToken, getAllOrg);
 export default routes
 
