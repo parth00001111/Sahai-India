@@ -36,6 +36,35 @@ export const createOrg = async (req, res) => {
   const body = req.body || {};
   const fileUrls = {};
 
+  if (req.user?.userType !== "org_staff") {
+    return res.status(403).json({
+      success: false,
+      message: "Only organisation staff can submit an organisation application",
+      data: null,
+    });
+  }
+
+  try {
+    const existingMembership = await prisma.orgMember.findFirst({
+      where: { userId: req.user.userId },
+      include: { organization: true },
+    });
+
+    if (existingMembership) {
+      return res.status(409).json({
+        success: false,
+        message: "Your account is already connected to an organisation",
+        data: existingMembership.organization,
+      });
+    }
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Unable to check your organisation account: " + err.message,
+      data: null,
+    });
+  }
+
   try {
     for (const field of [
       "registrationCertificate",
@@ -109,9 +138,6 @@ export const createOrg = async (req, res) => {
   const fullAddress = `${address ? address + ", " : ""}${city}, ${district}, ${state}, ${pincode}`;
   const { lat, lng } = await geocodeAddress(fullAddress);
 
-  const requiredDocs = [registrationCertUrl, panDocUrl, addressProofUrl, authLetterUrl, logoUrl];
-  const allDocsPresent = requiredDocs.every((doc) => doc && doc.trim() !== "");
-
   try {
     const newOrg = await prisma.organization.create({
       data: {
@@ -141,15 +167,19 @@ export const createOrg = async (req, res) => {
         addressProofUrl,
         authLetterUrl,
         logoUrl,
-        verificationStatus: allDocsPresent ? "verified" : "pending",
+        verificationStatus: "pending",
+        members: {
+          create: {
+            userId: req.user.userId,
+            role: "admin",
+          },
+        },
       },
     });
 
     return res.status(201).json({
       success: true,
-      message: allDocsPresent
-        ? "Organization created and verified successfully"
-        : "Organization created, pending document verification",
+      message: "Organization created, pending document verification",
       data: newOrg,
     });
   } catch (err) {
@@ -161,6 +191,108 @@ export const createOrg = async (req, res) => {
     });
   }
 };
+
+export const getMyOrganization = async (req, res) => {
+  if (req.user?.userType !== "org_staff") {
+    return res.status(403).json({
+      success: false,
+      message: "Only organisation staff can access an organisation workspace",
+      data: null,
+    });
+  }
+
+  try {
+    const organization = await prisma.organization.findFirst({
+      where: {
+        members: {
+          some: { userId: req.user.userId },
+        },
+      },
+      include: {
+        services: true,
+        members: {
+          select: {
+            id: true,
+            role: true,
+            user: {
+              select: { id: true, email: true, phone: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!organization) {
+      return res.status(404).json({
+        success: false,
+        message: "Organisation onboarding has not been completed",
+        data: null,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Organisation workspace fetched successfully",
+      data: organization,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load the organisation workspace: " + err.message,
+      data: null,
+    });
+  }
+};
+
+export const updateOrganizationVerification = async (req, res) => {
+  if (req.user?.userType !== "platform_admin") {
+    return res.status(403).json({
+      success: false,
+      message: "Only platform administrators can verify organisations",
+      data: null,
+    });
+  }
+
+  const { status } = req.body || {};
+  if (!["pending", "verified", "rejected"].includes(status)) {
+    return res.status(400).json({
+      success: false,
+      message: "Status must be pending, verified, or rejected",
+      data: null,
+    });
+  }
+
+  try {
+    const organization = await prisma.organization.update({
+      where: { id: req.params.id },
+      data: {
+        verificationStatus: status,
+        verifiedBy: status === "verified" ? req.user.userId : null,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Organisation status updated to ${status}`,
+      data: organization,
+    });
+  } catch (err) {
+    if (err?.code === "P2025") {
+      return res.status(404).json({
+        success: false,
+        message: "Organisation not found",
+        data: null,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to update organisation status: " + err.message,
+      data: null,
+    });
+  }
+};
+
 export const getAllOrg = async (req, res) => {
   const { userType } = req.user;
 
