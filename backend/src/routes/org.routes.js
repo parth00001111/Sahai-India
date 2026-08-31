@@ -1,4 +1,11 @@
-import { createOrg, getAllOrg, getMyOrganization, updateOrganizationVerification } from "../controllers/organizationController.js";
+import {
+  createOrg,
+  getAllOrg,
+  getMyOrganization,
+  updateOrganization,
+  updateOrganizationVerification,
+  addOrgMember,
+} from "../controllers/organizationController.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { Router } from 'express';
 import { upload } from "../middleware/multer.js";
@@ -19,7 +26,8 @@ routes.post(
   createOrg
 );
 routes.get("/organizations/me", verifyToken, getMyOrganization);
+routes.patch("/organizations/me", verifyToken, updateOrganization);
+routes.post("/organizations/members", verifyToken, addOrgMember);
 routes.patch("/organizations/:id/verification", verifyToken, updateOrganizationVerification);
 routes.get("/organizations", verifyToken, getAllOrg);
 export default routes
-
