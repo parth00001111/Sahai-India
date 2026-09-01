@@ -1,4 +1,5 @@
 import axios from "axios";
+import crypto from "node:crypto";
 import streamifier from "streamifier";
 import prisma from "../../PrismaClient.js";
 import cloudinary from "../config/claudinary.js";
@@ -202,27 +203,47 @@ export const getMyOrganization = async (req, res) => {
   }
 
   try {
-    const organization = await prisma.organization.findFirst({
-      where: {
-        members: {
-          some: { userId: req.user.userId },
-        },
-      },
+    const membership = await prisma.orgMember.findFirst({
+      where: { userId: req.user.userId },
       include: {
-        services: true,
-        members: {
-          select: {
-            id: true,
-            role: true,
-            user: {
-              select: { id: true, email: true, phone: true },
+        organization: {
+          include: {
+            services: true,
+            members: {
+              select: {
+                id: true,
+                role: true,
+                user: {
+                  select: {
+                    id: true,
+                    email: true,
+                    phone: true,
+                    profile: { select: { fullName: true } },
+                  },
+                },
+              },
+            },
+            invitations: {
+              where: {
+                status: "pending",
+                expiresAt: { gt: new Date() },
+              },
+              select: {
+                id: true,
+                email: true,
+                role: true,
+                token: true,
+                expiresAt: true,
+                createdAt: true,
+              },
+              orderBy: { createdAt: "desc" },
             },
           },
         },
       },
     });
 
-    if (!organization) {
+    if (!membership) {
       return res.status(404).json({
         success: false,
         message: "Organisation onboarding has not been completed",
@@ -230,10 +251,16 @@ export const getMyOrganization = async (req, res) => {
       });
     }
 
+    const { invitations, ...organization } = membership.organization;
+
     return res.status(200).json({
       success: true,
       message: "Organisation workspace fetched successfully",
-      data: organization,
+      data: {
+        ...organization,
+        invitations: membership.role === "admin" ? invitations : [],
+        currentUserRole: membership.role,
+      },
     });
   } catch (err) {
     return res.status(500).json({
@@ -253,7 +280,8 @@ export const addOrgMember = async (req, res) => {
     });
   }
 
-  const { email, role } = req.body || {};
+  const { email: requestedEmail, role } = req.body || {};
+  const email = requestedEmail?.trim().toLowerCase();
 
   if (!email) {
     return res.status(400).json({
@@ -280,10 +308,41 @@ export const addOrgMember = async (req, res) => {
 
     const targetUser = await prisma.user.findUnique({ where: { email } });
 
-    if (!targetUser || targetUser.userType !== "org_staff") {
-      return res.status(404).json({
+    if (!targetUser) {
+      const invitation = await prisma.orgInvitation.upsert({
+        where: {
+          orgId_email: {
+            orgId: adminMembership.orgId,
+            email,
+          },
+        },
+        update: {
+          role: memberRole,
+          token: crypto.randomBytes(32).toString("hex"),
+          status: "pending",
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          acceptedAt: null,
+        },
+        create: {
+          orgId: adminMembership.orgId,
+          email,
+          role: memberRole,
+          token: crypto.randomBytes(32).toString("hex"),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Invitation created. Share the secure link with this team member",
+        data: { kind: "invitation", ...invitation },
+      });
+    }
+
+    if (targetUser.userType !== "org_staff") {
+      return res.status(409).json({
         success: false,
-        message: "No organisation-staff account found with this email",
+        message: "This email belongs to a citizen account. Ask the user to register with another email as organisation staff",
         data: null,
       });
     }
@@ -314,7 +373,7 @@ export const addOrgMember = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Member added to organisation",
-      data: newMember,
+      data: { kind: "member", ...newMember },
     });
   } catch (err) {
     return res.status(500).json({
@@ -480,5 +539,73 @@ export const getAllOrg = async (req, res) => {
       message: err.message,
       data: null,
     });
+  }
+};
+
+export const getOrganizationInvitation = async (req, res) => {
+  try {
+    const invitation = await prisma.orgInvitation.findUnique({
+      where: { token: req.params.token },
+      include: {
+        organization: {
+          select: { id: true, name: true, logoUrl: true },
+        },
+      },
+    });
+
+    if (!invitation || invitation.status !== "pending" || invitation.expiresAt <= new Date()) {
+      return res.status(410).json({
+        success: false,
+        message: "This organisation invitation is invalid or has expired",
+        data: null,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Organisation invitation is valid",
+      data: {
+        email: invitation.email,
+        role: invitation.role,
+        expiresAt: invitation.expiresAt,
+        organization: invitation.organization,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load this invitation: " + err.message,
+      data: null,
+    });
+  }
+};
+
+export const revokeOrganizationInvitation = async (req, res) => {
+  if (req.user?.userType !== "org_staff") {
+    return res.status(403).json({ success: false, message: "Only organisation staff can manage invitations", data: null });
+  }
+
+  try {
+    const adminMembership = await prisma.orgMember.findFirst({
+      where: { userId: req.user.userId, role: "admin" },
+    });
+    if (!adminMembership) {
+      return res.status(403).json({ success: false, message: "Only the organisation admin can revoke invitations", data: null });
+    }
+
+    const invitation = await prisma.orgInvitation.findFirst({
+      where: { id: req.params.id, orgId: adminMembership.orgId, status: "pending" },
+    });
+    if (!invitation) {
+      return res.status(404).json({ success: false, message: "Pending invitation not found", data: null });
+    }
+
+    await prisma.orgInvitation.update({
+      where: { id: invitation.id },
+      data: { status: "revoked" },
+    });
+    return res.status(200).json({ success: true, message: "Invitation revoked", data: null });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: "Unable to revoke invitation: " + err.message, data: null });
   }
 };
