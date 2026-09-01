@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import logo from '../assets/sahai-india-logo.png'
 import { addOrganisationMember, revokeOrganisationInvitation, updateMyOrganisation } from '../services/organisationApi.js'
 import OrganisationTasksPanel from './OrganisationTasksPanel.jsx'
+import OrganisationServicesPanel from './OrganisationServicesPanel.jsx'
 
 const navItems = [
   ['overview', 'Overview'],
@@ -109,14 +110,6 @@ function Field({ label, children }) {
   return <label className="block"><span className="mb-2 block text-sm font-bold text-slate-700">{label}</span>{children}</label>
 }
 
-function ServicesPanel({ organisation }) {
-  const services = organisation.services || []
-  return <section><SectionHeader eyebrow="Your work" title="Services" description="Services currently connected to your organisation in Sahai India." />
-    {organisation.status !== 'verified' && <p className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-800">Service publishing becomes available after organisation approval.</p>}
-    <div className="mt-6 grid gap-4 md:grid-cols-2">{services.length ? services.map((service) => <article key={service.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex justify-between gap-4"><h2 className="font-extrabold text-navy">{service.name}</h2><span className={`rounded-full px-3 py-1 text-xs font-bold ${service.isActive ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'}`}>{service.isActive ? 'Active' : 'Inactive'}</span></div><p className="mt-3 text-sm leading-6 text-slate-500">{service.description || 'No description provided.'}</p>{service.capacity != null && <p className="mt-4 text-xs font-bold text-slate-600">Capacity: {service.capacity}</p>}</article>) : <EmptyState icon="services" title="No services yet" text={organisation.status === 'verified' ? 'No services are connected to this organisation yet.' : 'Your services will appear here after approval and activation.'} />}</div>
-  </section>
-}
-
 function TeamPanel({ organisation, onChanged, canManage }) {
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('staff')
@@ -164,10 +157,6 @@ function DocumentsPanel({ organisation }) {
   return <section><SectionHeader eyebrow="Verification" title="Documents" description="A concise record of the files submitted with your application." /><div className="mt-7 grid gap-3">{documents.map(([name, url, required]) => <div key={name} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-navy"><Icon name="documents" /></span><div className="min-w-0 flex-1"><p className="font-bold text-navy">{name}</p><p className="text-xs text-slate-500">{required ? 'Required document' : 'Supporting document'}</p></div>{url ? <a href={url} target="_blank" rel="noreferrer" className="rounded-lg bg-green-50 px-3 py-2 text-xs font-bold text-green-700">View file ↗</a> : <span className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-500">Not submitted</span>}</div>)}</div></section>
 }
 
-function EmptyState({ icon, title, text }) {
-  return <div className="grid min-h-60 place-items-center rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center md:col-span-2"><div><span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-slate-100 text-navy"><Icon name={icon} /></span><h2 className="mt-4 font-extrabold text-navy">{title}</h2><p className="mt-2 text-sm text-slate-500">{text}</p></div></div>
-}
-
 export default function OrganisationDashboard({ organisation, onBack, onRefresh }) {
   const [active, setActive] = useState('overview')
   const [mobileMenu, setMobileMenu] = useState(false)
@@ -182,6 +171,6 @@ export default function OrganisationDashboard({ organisation, onBack, onRefresh 
     {status !== 'verified' && <div role="status" className={`flex flex-wrap items-center justify-center gap-3 border-b px-4 py-2.5 text-center text-sm font-semibold ${status === 'rejected' ? 'border-red-200 bg-red-50 text-red-800' : 'border-amber-200 bg-amber-50 text-amber-900'}`}><span><span className={`mr-2 inline-block h-2 w-2 rounded-full ${status === 'rejected' ? 'bg-red-500' : 'animate-pulse bg-amber-500'}`} />{status === 'rejected' ? 'Your application needs attention. Contact Sahai India support before making changes.' : 'Your organisation approval is pending. Your submitted information remains available here.'}</span><button disabled={refreshing} onClick={refresh} className="rounded-lg border border-current/20 bg-white px-3 py-1 text-xs font-extrabold disabled:opacity-60">{refreshing ? 'Checking…' : 'Check status'}</button>{refreshMessage && <span className="text-xs">{refreshMessage}</span>}</div>}
     <header className="border-b border-slate-200 bg-white"><div className="mx-auto flex h-16 max-w-[1500px] items-center justify-between px-4 sm:px-6"><div className="flex items-center gap-3"><button onClick={() => setMobileMenu(!mobileMenu)} className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 lg:hidden" aria-label="Toggle dashboard navigation">☰</button><img src={organisation.logoUrl || logo} alt="" className="h-10 w-10 rounded-lg object-contain" /><div className="hidden sm:block"><strong className="block text-sm text-navy">{organisation.organisationName}</strong><span className="text-xs text-slate-500">Partner workspace</span></div></div><div className="flex items-center gap-3"><StatusPill status={status} /><button onClick={onBack} className="hidden rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-navy hover:bg-slate-50 sm:block">View website</button><span className="grid h-10 w-10 place-items-center rounded-full bg-navy text-xs font-extrabold text-white">{initials}</span></div></div></header>
     <div className="mx-auto flex max-w-[1500px]"><aside className={`${mobileMenu ? 'block' : 'hidden'} fixed inset-x-0 z-30 border-b border-slate-200 bg-white p-4 shadow-xl lg:static lg:block lg:min-h-[calc(100vh-105px)] lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-r lg:p-5 lg:shadow-none`}><div className="mb-5 rounded-2xl bg-slate-50 p-4"><p className="truncate font-extrabold text-navy">{organisation.organisationName}</p><p className="mt-1 truncate text-xs text-slate-500">{organisation.registrationNumber}</p></div><nav className="grid gap-1">{navItems.map(([key, label]) => <button key={key} onClick={() => { setActive(key); setMobileMenu(false) }} className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-bold transition ${active === key ? 'bg-blue-50 text-navy' : 'text-slate-600 hover:bg-slate-50 hover:text-navy'}`}><Icon name={key} />{label}</button>)}</nav><button onClick={onBack} className="mt-6 w-full border-t border-slate-200 px-4 pt-5 text-left text-sm font-bold text-slate-600">← Back to website</button></aside>
-      <main className="min-w-0 flex-1 p-4 sm:p-7 lg:p-9">{active === 'overview' && <Overview organisation={organisation} onNavigate={setActive} />}{active === 'profile' && <ProfilePanel organisation={organisation} onSaved={refresh} canEdit={canManage} />}{active === 'services' && <ServicesPanel organisation={organisation} />}{active === 'tasks' && <OrganisationTasksPanel organisation={organisation} />}{active === 'team' && <TeamPanel organisation={organisation} onChanged={refresh} canManage={canManage} />}{active === 'documents' && <DocumentsPanel organisation={organisation} />}</main></div>
+      <main className="min-w-0 flex-1 p-4 sm:p-7 lg:p-9">{active === 'overview' && <Overview organisation={organisation} onNavigate={setActive} />}{active === 'profile' && <ProfilePanel organisation={organisation} onSaved={refresh} canEdit={canManage} />}{active === 'services' && <OrganisationServicesPanel organisation={organisation} canManage={canManage} />}{active === 'tasks' && <OrganisationTasksPanel organisation={organisation} />}{active === 'team' && <TeamPanel organisation={organisation} onChanged={refresh} canManage={canManage} />}{active === 'documents' && <DocumentsPanel organisation={organisation} />}</main></div>
   </div>
 }
