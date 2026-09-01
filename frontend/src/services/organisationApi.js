@@ -1,4 +1,4 @@
-const API_BASE_URL = (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/$/, '')
+import apiClient, { apiErrorMessage } from './apiClient.js'
 
 export function normaliseOrganisation(organization) {
   if (!organization) return null
@@ -8,22 +8,6 @@ export function normaliseOrganisation(organization) {
     status: organization.status || organization.verificationStatus || 'pending',
     submittedAt: organization.submittedAt || organization.createdAt,
   }
-}
-
-function extractErrorMessage(result) {
-  if (typeof result?.message === 'string') return result.message
-
-  const validationMessage = result?.message?.issues?.[0]?.message || result?.message?.message
-  if (typeof validationMessage === 'string') {
-    try {
-      const issues = JSON.parse(validationMessage)
-      return issues?.[0]?.message || 'Please review the organisation details.'
-    } catch {
-      return validationMessage
-    }
-  }
-
-  return 'The organisation could not be submitted. Please try again.'
 }
 
 export async function createOrganisation(form) {
@@ -66,35 +50,57 @@ export async function createOrganisation(form) {
     if (file) payload.append(key, file)
   })
 
-  let response
   try {
-    response = await fetch(`${API_BASE_URL}/organizations`, {
-      method: 'POST',
-      credentials: 'include',
-      body: payload,
-    })
-  } catch {
-    throw new Error('Unable to reach the Sahai India server. Confirm the backend is running and try again.')
+    const { data: result } = await apiClient.post('/organizations', payload)
+    if (result.data) result.data = normaliseOrganisation(result.data)
+    return result
+  } catch (error) {
+    throw new Error(apiErrorMessage(error, 'The organisation could not be submitted. Please try again.'), { cause: error })
   }
-
-  const result = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(extractErrorMessage(result))
-  if (result.data) result.data = normaliseOrganisation(result.data)
-  return result
 }
 
 export async function getMyOrganisation() {
-  let response
   try {
-    response = await fetch(`${API_BASE_URL}/organizations/me`, {
-      credentials: 'include',
-    })
-  } catch {
-    throw new Error('Unable to reach the Sahai India server. Confirm the backend is running and try again.')
+    const { data: result } = await apiClient.get('/organizations/me')
+    return normaliseOrganisation(result.data)
+  } catch (error) {
+    if (error.response?.status === 404) return null
+    throw new Error(apiErrorMessage(error, 'Unable to load your organisation workspace.'), { cause: error })
   }
+}
 
-  const result = await response.json().catch(() => ({}))
-  if (response.status === 404) return null
-  if (!response.ok) throw new Error(extractErrorMessage(result))
-  return normaliseOrganisation(result.data)
+export async function updateMyOrganisation(updates) {
+  try {
+    const { data: result } = await apiClient.patch('/organizations/me', updates)
+    return normaliseOrganisation(result.data)
+  } catch (error) {
+    throw new Error(apiErrorMessage(error, 'Unable to update the organisation profile.'), { cause: error })
+  }
+}
+
+export async function addOrganisationMember(member) {
+  try {
+    const { data: result } = await apiClient.post('/organizations/members', member)
+    return result.data
+  } catch (error) {
+    throw new Error(apiErrorMessage(error, 'Unable to add this team member.'), { cause: error })
+  }
+}
+
+export async function getOrganisationInvitation(token) {
+  try {
+    const { data: result } = await apiClient.get(`/organization-invitations/${token}`)
+    return result.data
+  } catch (error) {
+    throw new Error(apiErrorMessage(error, 'This organisation invitation is unavailable.'), { cause: error })
+  }
+}
+
+export async function revokeOrganisationInvitation(id) {
+  try {
+    const { data: result } = await apiClient.delete(`/organizations/invitations/${id}`)
+    return result
+  } catch (error) {
+    throw new Error(apiErrorMessage(error, 'Unable to revoke this invitation.'), { cause: error })
+  }
 }
