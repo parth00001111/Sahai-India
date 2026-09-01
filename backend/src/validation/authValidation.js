@@ -7,6 +7,7 @@ export const signupSchema = z.object({
     .string()
     .regex(/^[0-9]{10}$/, "Phone number must be exactly 10 digits"),
   userType: z.enum(["citizen", "org_staff"]).default("citizen"),
+  inviteToken: z.string().trim().min(32).optional(),
 });
 
 export const signinSchema = z.object({

@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
 import logo from './assets/sahai-india-logo.png'
 import modiPoster from './assets/sahai-india-modi-poster.png'
+import yogiPoster from './assets/sahai-india-yogi-poster.png'
 import AuthPage from './components/AuthPage.jsx'
 import OrganisationOnboarding from './components/OrganisationOnboarding.jsx'
 import OrganisationDashboard from './components/OrganisationDashboard.jsx'
-import { getMyOrganisation } from './services/organisationApi.js'
+import OrganisationStaffDashboard from './components/OrganisationStaffDashboard.jsx'
+import { getMyOrganisation, getOrganisationInvitation } from './services/organisationApi.js'
 
 const slides = [
   { tag: 'Seva is the strength of a nation', title: 'Together, we lift every citizen', text: 'Sahai India connects people in need with compassionate volunteers, trusted organisations, and essential services—because progress begins when no one is left behind.', image: modiPoster, dark: true, note: 'Concept visual • No official endorsement is implied' },
+  { tag: 'Responsive support • Stronger communities', title: 'Help that listens, acts, and reaches everyone', text: 'Sahai India brings citizens, volunteers, and trusted organisations together so essential support can reach people with dignity and care.', image: yogiPoster, dark: true, note: 'Concept visual • No official endorsement is implied' },
   { tag: 'Seva • Sahyog • Samarthan', title: 'Support that reaches every Indian', text: 'Discover trusted organisations, public services, and community programmes—all in one helpful place.', gradient: 'from-orange-100 via-white to-green-100', dark: false },
   { tag: 'Community first', title: 'Find the right help, closer to home', text: 'Connect with organisations working across health, education, livelihoods, women’s safety, and disaster relief.', gradient: 'from-[#0a3472] via-[#12509a] to-[#138808]', dark: true },
   { tag: 'Together for India', title: 'Turn compassion into meaningful action', text: 'Volunteer, support a cause, or help someone discover services that can make a lasting difference.', gradient: 'from-[#138808] via-[#e3a51d] to-[#f97316]', dark: true },
@@ -23,9 +26,24 @@ const organisations = [
 ]
 
 const testimonials = [
-  ['Add an approved message from a public leader here about community partnership and citizen-first service.', 'Verified leader name', 'Official designation • Government body'],
-  ['Use this space for an authorised statement highlighting the impact of Sahai India and its partner organisations.', 'Verified leader name', 'Official designation • Public institution'],
-  ['Publish only a verified testimonial with its date, source, and permission details for public trust.', 'Verified leader name', 'Official designation • State or district'],
+  {
+    quote: 'As One Family, we support each other in the pursuit of growth.',
+    name: 'Narendra Modi',
+    role: 'Prime Minister of India',
+    source: 'PM India • Human-Centric Globalisation',
+    sourceUrl: 'https://www.pmindia.gov.in/en/news_updates/human-centric-globalisation-taking-g20-to-the-last-mile-leaving-none-behind-narendra-modi/',
+    image: modiPoster,
+    imagePosition: 'object-[82%_center]',
+  },
+  {
+    quote: 'Sabka Saath, Sabka Vikas is the foundation for the upliftment and respect of every section of society.',
+    name: 'Yogi Adityanath',
+    role: 'Chief Minister of Uttar Pradesh',
+    source: 'Chief Minister Office, Uttar Pradesh',
+    sourceUrl: 'https://www.linkedin.com/posts/cmofficeup_the-uttar-pradesh-government-has-taken-another-activity-7491087914206978048-vDOo',
+    image: yogiPoster,
+    imagePosition: 'object-right',
+  },
 ]
 
 const faqs = [
@@ -76,7 +94,15 @@ function App() {
   const [dashboardOrganisation, setDashboardOrganisation] = useState(() => readSavedOrganisation())
   const [showDashboard, setShowDashboard] = useState(false)
   const [workspaceError, setWorkspaceError] = useState('')
+  const [invitation, setInvitation] = useState(null)
   useEffect(() => { const id = setInterval(() => setSlide((n) => (n + 1) % slides.length), 6500); return () => clearInterval(id) }, [])
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('invite')
+    if (!token) return
+    getOrganisationInvitation(token)
+      .then((details) => { setInvitation({ ...details, token }); setAuthMode('signup') })
+      .catch((error) => setWorkspaceError(error.message))
+  }, [])
   const move = (n) => setSlide((current) => (current + n + slides.length) % slides.length)
 
   const openOnboarding = async (user = null) => {
@@ -111,9 +137,11 @@ function App() {
     return databaseOrganisation
   }
 
-  if (showDashboard && dashboardOrganisation) return <OrganisationDashboard organisation={dashboardOrganisation} onBack={() => setShowDashboard(false)} onRefresh={refreshDashboard} />
+  if (showDashboard && dashboardOrganisation) return dashboardOrganisation.currentUserRole === 'staff'
+    ? <OrganisationStaffDashboard organisation={dashboardOrganisation} onBack={() => setShowDashboard(false)} />
+    : <OrganisationDashboard organisation={dashboardOrganisation} onBack={() => setShowDashboard(false)} onRefresh={refreshDashboard} />
   if (showOnboarding) return <OrganisationOnboarding user={onboardingUser} onBack={() => setShowOnboarding(false)} onComplete={(application) => { setDashboardOrganisation(application); setShowOnboarding(false); setShowDashboard(true) }} />
-  if (authMode) return <AuthPage initialMode={authMode} onBack={() => setAuthMode(null)} onOrganisationOnboarding={async (user) => { const opened = await openOnboarding(user); if (opened) setAuthMode(null) }} />
+  if (authMode) return <AuthPage initialMode={authMode} invitation={invitation} onBack={() => { setAuthMode(null); setInvitation(null) }} onOrganisationOnboarding={async (user) => { const opened = await openOnboarding(user); if (opened) { setAuthMode(null); setInvitation(null); window.history.replaceState({}, '', window.location.pathname) } }} />
 
   return <div className="min-h-screen overflow-x-hidden bg-[#fffdf9] text-ink">
     {workspaceError && <div role="alert" className="fixed inset-x-4 top-4 z-[100] mx-auto flex max-w-xl items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 shadow-xl"><span>{workspaceError}</span><button onClick={() => setWorkspaceError('')} aria-label="Dismiss message" className="text-lg">×</button></div>}
@@ -149,7 +177,7 @@ function App() {
 
       <section id="organisations" className="bg-white px-4 py-20 sm:px-6 lg:px-8 lg:py-28"><div className="mx-auto max-w-7xl"><Heading label="Our network" title="Help, powered by partnership" text="Explore NGOs, civil-society groups, and public-service organisations working together for people across India."/><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{organisations.map(([initials,name,detail,color]) => <a key={name} href="#connect" className="group flex items-center gap-4 rounded-2xl border border-slate-200 p-5 shadow-sm transition hover:-translate-y-1 hover:border-orange-200 hover:shadow-lg"><span className={`grid h-14 w-14 shrink-0 place-items-center rounded-xl text-sm font-extrabold ${color}`}>{initials}</span><span className="flex-1"><strong className="block text-navy">{name}</strong><span className="mt-1 block text-sm text-slate-500">{detail}</span></span><span className="text-xl text-slate-300 group-hover:text-saffron">→</span></a>)}</div><div className="mt-8 text-center"><button className="rounded-lg border border-slate-300 px-6 py-3 text-sm font-bold text-navy hover:border-navy hover:bg-blue-50">View all organisations</button></div></div></section>
 
-      <section id="impact" className="relative overflow-hidden bg-[#071d43] px-4 py-20 text-white sm:px-6 lg:px-8 lg:py-28"><div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-saffron via-white to-india-green"/><div className="relative mx-auto max-w-7xl"><div className="mx-auto mb-10 max-w-2xl text-center"><p className="mb-3 text-xs font-bold uppercase tracking-[.22em] text-orange-300">Voices of service</p><h2 className="font-serif text-3xl font-bold sm:text-4xl">Leaders on people-first progress</h2><p className="mt-4 text-blue-100">A dedicated space for approved statements from public leaders and institutions.</p></div><div className="grid gap-5 lg:grid-cols-3">{testimonials.map(([quote,name,role],i) => <article key={i} className="rounded-2xl border border-white/10 bg-white/[.07] p-7"><div className="mb-4 font-serif text-4xl text-saffron">“</div><p className="min-h-32 leading-7 text-blue-50">{quote}</p><div className="mt-7 border-t border-white/10 pt-5"><p className="font-bold">{name}</p><p className="mt-1 text-xs text-blue-200">{role}</p></div></article>)}</div><p className="mt-6 text-center text-xs text-blue-200">Sample content — replace with authorised, attributable testimonials before publication.</p></div></section>
+      <section id="impact" className="relative overflow-hidden bg-[#071d43] px-4 py-20 text-white sm:px-6 lg:px-8 lg:py-28"><div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-saffron via-white to-india-green"/><div className="relative mx-auto max-w-7xl"><div className="mx-auto mb-10 max-w-2xl text-center"><p className="mb-3 text-xs font-bold uppercase tracking-[.22em] text-orange-300">Voices of service</p><h2 className="font-serif text-3xl font-bold sm:text-4xl">Together, we help. Together, we grow.</h2><p className="mt-4 text-blue-100">Publicly documented messages on mutual support, participation, and inclusive progress.</p></div><div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2">{testimonials.map((item) => <article key={item.name} className="overflow-hidden rounded-3xl border border-white/10 bg-white/[.07] shadow-xl"><div className="relative h-52 overflow-hidden"><img src={item.image} alt="" className={`h-full w-full object-cover ${item.imagePosition}`} /><div className="absolute inset-0 bg-gradient-to-t from-[#071d43] via-transparent to-transparent"/></div><div className="p-7 sm:p-8"><div className="mb-3 font-serif text-4xl leading-none text-saffron">“</div><blockquote className="min-h-24 text-lg font-semibold leading-8 text-blue-50">{item.quote}</blockquote><div className="mt-6 border-t border-white/10 pt-5"><p className="font-extrabold">{item.name}</p><p className="mt-1 text-xs text-blue-200">{item.role}</p><a href={item.sourceUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex text-xs font-bold text-orange-300 hover:text-orange-200">View official source ↗</a></div></div></article>)}</div><p className="mx-auto mt-7 max-w-3xl text-center text-xs leading-5 text-blue-200">These independently sourced public statements express general themes of cooperation and inclusive growth. They do not constitute an endorsement of Sahai India.</p></div></section>
 
       <section id="faq" className="bg-[#fffaf2] px-4 py-20 sm:px-6 lg:px-8 lg:py-28"><div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[.75fr_1.25fr]"><div><Heading label="Help centre" title="Frequently asked questions" text="Quick answers about the platform, access, and partnerships." left/><div className="rounded-2xl border border-orange-100 bg-white p-6 shadow-sm"><p className="font-bold text-navy">Still need help?</p><p className="mt-2 text-sm text-slate-600">Our support team can guide you to the right resource.</p><a href="mailto:help@sahaiindia.in" className="mt-4 inline-block text-sm font-bold text-orange-700">Contact support →</a></div></div><div className="space-y-3">{faqs.map(([q,a],i) => <details key={q} open={i === 0} className="group rounded-xl border border-slate-200 bg-white shadow-sm"><summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 font-bold text-navy"><span>{q}</span><span className="grid h-8 w-8 place-items-center rounded-full bg-orange-50 text-xl text-saffron transition group-open:rotate-45">+</span></summary><p className="px-5 pb-5 pr-14 text-sm leading-7 text-slate-600">{a}</p></details>)}</div></div></section>
     </main>

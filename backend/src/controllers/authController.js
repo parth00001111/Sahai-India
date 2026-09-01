@@ -38,9 +38,34 @@ export const signup = async (req, res) => {
     });
   }
 
-  const { email, password, phone, userType } = result.data;
+  const email = result.data.email.trim().toLowerCase();
+  const { password, phone, inviteToken } = result.data;
+  let userType = result.data.userType;
 
   try {
+    let invitation = null;
+    if (inviteToken) {
+      invitation = await prisma.orgInvitation.findUnique({
+        where: { token: inviteToken },
+      });
+
+      if (!invitation || invitation.status !== "pending" || invitation.expiresAt <= new Date()) {
+        return res.status(410).json({
+          success: false,
+          message: "This organisation invitation is invalid or has expired",
+        });
+      }
+
+      if (invitation.email.toLowerCase() !== email) {
+        return res.status(400).json({
+          success: false,
+          message: "Use the email address that received this organisation invitation",
+        });
+      }
+
+      userType = "org_staff";
+    }
+
     const existingUser = await prisma.user.findFirst({
       where: {
         OR: [{ email }, { phone }],
@@ -66,20 +91,33 @@ export const signup = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        userType,
-        phone,
-      },
-      select: {
-        id: true,
-        email: true,
-        phone: true,
-        userType: true,
-        createdAt: true,
-      },
+    const newUser = await prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: { email, password: hashedPassword, userType, phone },
+        select: {
+          id: true,
+          email: true,
+          phone: true,
+          userType: true,
+          createdAt: true,
+        },
+      });
+
+      if (invitation) {
+        await tx.orgMember.create({
+          data: {
+            orgId: invitation.orgId,
+            userId: createdUser.id,
+            role: invitation.role,
+          },
+        });
+        await tx.orgInvitation.update({
+          where: { id: invitation.id },
+          data: { status: "accepted", acceptedAt: new Date() },
+        });
+      }
+
+      return createdUser;
     });
 
     
@@ -87,7 +125,7 @@ export const signup = async (req, res) => {
 
     return res.status(201).cookie("token", token, cookieOptions).json({
       success: true,
-      message: "Signup successfully",
+      message: invitation ? "Account created and organisation invitation accepted" : "Signup successfully",
       data: newUser,
     });
   } catch (err) {
@@ -119,7 +157,8 @@ export const signin = async (req, res) => {
     });
   }
 
-  const { email, password } = result.data;
+  const email = result.data.email.trim().toLowerCase();
+  const { password } = result.data;
 
   try {
     const userExist = await prisma.user.findUnique({

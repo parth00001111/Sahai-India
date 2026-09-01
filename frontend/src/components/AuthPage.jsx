@@ -10,9 +10,9 @@ const emptyForm = {
   userType: 'citizen',
 }
 
-function AuthPage({ initialMode, onBack, onOrganisationOnboarding }) {
+function AuthPage({ initialMode, onBack, onOrganisationOnboarding, invitation }) {
   const [mode, setMode] = useState(initialMode)
-  const [form, setForm] = useState(emptyForm)
+  const [form, setForm] = useState(() => invitation ? { ...emptyForm, email: invitation.email, userType: 'org_staff' } : emptyForm)
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -55,7 +55,7 @@ function AuthPage({ initialMode, onBack, onOrganisationOnboarding }) {
 
     try {
       const result = isSignup
-        ? await signUp({ email: form.email.trim(), phone: form.phone, password: form.password, userType: form.userType })
+        ? await signUp({ email: form.email.trim(), phone: form.phone, password: form.password, userType: invitation ? 'org_staff' : form.userType, inviteToken: invitation?.token })
         : await signIn({ email: form.email.trim(), password: form.password })
 
       const user = result.data || {}
@@ -105,19 +105,21 @@ function AuthPage({ initialMode, onBack, onOrganisationOnboarding }) {
         <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-xl sm:p-9">
           <button onClick={onBack} className="mb-6 flex items-center gap-2 text-sm font-bold text-navy lg:hidden">← Back to homepage</button>
           <div className="mb-8 lg:hidden"><img src={logo} alt="Sahai India" className="h-16 w-16 object-contain" /></div>
-          <p className="text-xs font-extrabold uppercase tracking-[.2em] text-orange-700">{isSignup ? 'Join the network' : 'Welcome back'}</p>
-          <h1 className="mt-3 font-serif text-3xl font-bold text-navy sm:text-4xl">{isSignup ? 'Create your account' : 'Sign in to Sahai India'}</h1>
-          <p className="mt-3 leading-7 text-slate-600">{isSignup ? 'Register as a citizen or organisation staff member.' : 'Enter your registered details to continue.'}</p>
+          <p className="text-xs font-extrabold uppercase tracking-[.2em] text-orange-700">{invitation ? 'Organisation invitation' : isSignup ? 'Join the network' : 'Welcome back'}</p>
+          <h1 className="mt-3 font-serif text-3xl font-bold text-navy sm:text-4xl">{invitation ? `Join ${invitation.organization.name}` : isSignup ? 'Create your account' : 'Sign in to Sahai India'}</h1>
+          <p className="mt-3 leading-7 text-slate-600">{invitation ? `Create your secure account to join as ${invitation.role}.` : isSignup ? 'Register as a citizen or organisation staff member.' : 'Enter your registered details to continue.'}</p>
 
-          <div className="mt-7 grid grid-cols-2 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Authentication mode">
+          {!invitation && <div className="mt-7 grid grid-cols-2 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Authentication mode">
             <button type="button" onClick={() => switchMode('login')} className={`rounded-lg px-4 py-2.5 text-sm font-bold transition ${!isSignup ? 'bg-white text-navy shadow-sm' : 'text-slate-500 hover:text-navy'}`}>Log in</button>
             <button type="button" onClick={() => switchMode('signup')} className={`rounded-lg px-4 py-2.5 text-sm font-bold transition ${isSignup ? 'bg-white text-navy shadow-sm' : 'text-slate-500 hover:text-navy'}`}>Sign up</button>
-          </div>
+          </div>}
+
+          {invitation && <div className="mt-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"><strong>{invitation.email}</strong><span className="mt-1 block text-xs">This invitation expires {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(invitation.expiresAt))}.</span></div>}
 
           <form onSubmit={handleSubmit} className="mt-7 space-y-5" noValidate>
-            {isSignup && <fieldset><legend className="mb-2 text-sm font-bold text-slate-700">I am registering as</legend><div className="grid grid-cols-2 gap-3"><label className={`cursor-pointer rounded-xl border p-3 text-sm transition ${form.userType === 'citizen' ? 'border-orange-300 bg-orange-50 text-navy' : 'border-slate-200 text-slate-600'}`}><input type="radio" name="userType" value="citizen" checked={form.userType === 'citizen'} onChange={updateField} className="mr-2 accent-orange-600" />Citizen</label><label className={`cursor-pointer rounded-xl border p-3 text-sm transition ${form.userType === 'org_staff' ? 'border-green-300 bg-green-50 text-navy' : 'border-slate-200 text-slate-600'}`}><input type="radio" name="userType" value="org_staff" checked={form.userType === 'org_staff'} onChange={updateField} className="mr-2 accent-green-700" />Organisation staff</label></div></fieldset>}
+            {isSignup && !invitation && <fieldset><legend className="mb-2 text-sm font-bold text-slate-700">I am registering as</legend><div className="grid grid-cols-2 gap-3"><label className={`cursor-pointer rounded-xl border p-3 text-sm transition ${form.userType === 'citizen' ? 'border-orange-300 bg-orange-50 text-navy' : 'border-slate-200 text-slate-600'}`}><input type="radio" name="userType" value="citizen" checked={form.userType === 'citizen'} onChange={updateField} className="mr-2 accent-orange-600" />Citizen</label><label className={`cursor-pointer rounded-xl border p-3 text-sm transition ${form.userType === 'org_staff' ? 'border-green-300 bg-green-50 text-navy' : 'border-slate-200 text-slate-600'}`}><input type="radio" name="userType" value="org_staff" checked={form.userType === 'org_staff'} onChange={updateField} className="mr-2 accent-green-700" />Organisation staff</label></div></fieldset>}
 
-            <label className="block"><span className="mb-2 block text-sm font-bold text-slate-700">Email address</span><input name="email" type="email" autoComplete="email" value={form.email} onChange={updateField} placeholder="name@example.com" className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-navy focus:ring-4 focus:ring-blue-100" required /></label>
+            <label className="block"><span className="mb-2 block text-sm font-bold text-slate-700">Email address</span><input name="email" type="email" autoComplete="email" value={form.email} onChange={updateField} readOnly={Boolean(invitation)} placeholder="name@example.com" className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-slate-900 outline-none transition read-only:bg-slate-100 placeholder:text-slate-400 focus:border-navy focus:ring-4 focus:ring-blue-100" required /></label>
 
             {isSignup && <label className="block"><span className="mb-2 block text-sm font-bold text-slate-700">Mobile number</span><div className="flex rounded-xl border border-slate-300 bg-white transition focus-within:border-navy focus-within:ring-4 focus-within:ring-blue-100"><span className="grid place-items-center border-r border-slate-200 px-4 text-sm font-bold text-slate-500">+91</span><input name="phone" type="tel" inputMode="numeric" autoComplete="tel" value={form.phone} onChange={updateField} placeholder="10-digit number" className="min-w-0 flex-1 rounded-r-xl px-4 py-3.5 text-slate-900 outline-none placeholder:text-slate-400" required /></div></label>}
 
@@ -130,7 +132,7 @@ function AuthPage({ initialMode, onBack, onOrganisationOnboarding }) {
             <button type="submit" disabled={loading} className="w-full rounded-xl border border-navy bg-navy px-5 py-3.5 font-bold text-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:border-orange-200 hover:bg-gradient-to-r hover:from-saffron hover:via-white hover:to-india-green hover:text-navy disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0">{loading ? 'Please wait…' : isSignup ? 'Create account' : 'Log in securely'}</button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-500">{isSignup ? 'Already registered?' : 'New to Sahai India?'} <button type="button" onClick={() => switchMode(isSignup ? 'login' : 'signup')} className="font-bold text-orange-700 hover:underline">{isSignup ? 'Log in' : 'Create an account'}</button></p>
+          {!invitation && <p className="mt-6 text-center text-sm text-slate-500">{isSignup ? 'Already registered?' : 'New to Sahai India?'} <button type="button" onClick={() => switchMode(isSignup ? 'login' : 'signup')} className="font-bold text-orange-700 hover:underline">{isSignup ? 'Log in' : 'Create an account'}</button></p>}
         </div>
       </section>
     </div>
