@@ -5,7 +5,8 @@ import yogiPoster from './assets/sahai-india-yogi-poster.png'
 import AuthPage from './components/AuthPage.jsx'
 import OrganisationOnboarding from './components/OrganisationOnboarding.jsx'
 import OrganisationDashboard from './components/OrganisationDashboard.jsx'
-import { getMyOrganisation } from './services/organisationApi.js'
+import OrganisationStaffDashboard from './components/OrganisationStaffDashboard.jsx'
+import { getMyOrganisation, getOrganisationInvitation } from './services/organisationApi.js'
 
 const slides = [
   { tag: 'Seva is the strength of a nation', title: 'Together, we lift every citizen', text: 'Sahai India connects people in need with compassionate volunteers, trusted organisations, and essential services—because progress begins when no one is left behind.', image: modiPoster, dark: true, note: 'Concept visual • No official endorsement is implied' },
@@ -93,7 +94,15 @@ function App() {
   const [dashboardOrganisation, setDashboardOrganisation] = useState(() => readSavedOrganisation())
   const [showDashboard, setShowDashboard] = useState(false)
   const [workspaceError, setWorkspaceError] = useState('')
+  const [invitation, setInvitation] = useState(null)
   useEffect(() => { const id = setInterval(() => setSlide((n) => (n + 1) % slides.length), 6500); return () => clearInterval(id) }, [])
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('invite')
+    if (!token) return
+    getOrganisationInvitation(token)
+      .then((details) => { setInvitation({ ...details, token }); setAuthMode('signup') })
+      .catch((error) => setWorkspaceError(error.message))
+  }, [])
   const move = (n) => setSlide((current) => (current + n + slides.length) % slides.length)
 
   const openOnboarding = async (user = null) => {
@@ -128,9 +137,11 @@ function App() {
     return databaseOrganisation
   }
 
-  if (showDashboard && dashboardOrganisation) return <OrganisationDashboard organisation={dashboardOrganisation} onBack={() => setShowDashboard(false)} onRefresh={refreshDashboard} />
+  if (showDashboard && dashboardOrganisation) return dashboardOrganisation.currentUserRole === 'staff'
+    ? <OrganisationStaffDashboard organisation={dashboardOrganisation} onBack={() => setShowDashboard(false)} />
+    : <OrganisationDashboard organisation={dashboardOrganisation} onBack={() => setShowDashboard(false)} onRefresh={refreshDashboard} />
   if (showOnboarding) return <OrganisationOnboarding user={onboardingUser} onBack={() => setShowOnboarding(false)} onComplete={(application) => { setDashboardOrganisation(application); setShowOnboarding(false); setShowDashboard(true) }} />
-  if (authMode) return <AuthPage initialMode={authMode} onBack={() => setAuthMode(null)} onOrganisationOnboarding={async (user) => { const opened = await openOnboarding(user); if (opened) setAuthMode(null) }} />
+  if (authMode) return <AuthPage initialMode={authMode} invitation={invitation} onBack={() => { setAuthMode(null); setInvitation(null) }} onOrganisationOnboarding={async (user) => { const opened = await openOnboarding(user); if (opened) { setAuthMode(null); setInvitation(null); window.history.replaceState({}, '', window.location.pathname) } }} />
 
   return <div className="min-h-screen overflow-x-hidden bg-[#fffdf9] text-ink">
     {workspaceError && <div role="alert" className="fixed inset-x-4 top-4 z-[100] mx-auto flex max-w-xl items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 shadow-xl"><span>{workspaceError}</span><button onClick={() => setWorkspaceError('')} aria-label="Dismiss message" className="text-lg">×</button></div>}
