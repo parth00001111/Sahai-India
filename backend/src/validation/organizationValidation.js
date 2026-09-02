@@ -45,7 +45,7 @@ export const createOrganizationSchema = z.object({
     .regex(/^[0-9]{10}$/, "Enter a valid 10-digit phone number")
     .optional(),
 
-  address: z.string().trim().optional(),
+  address: z.string().trim().min(5, "Complete address is required"),
   city: z.string().trim().min(2, "City is required"),
   district: z.string().trim().min(2, "District is required"),
   state: z.string().trim().min(2, "State is required"),
@@ -53,8 +53,9 @@ export const createOrganizationSchema = z.object({
     .string()
     .trim()
     .regex(/^[0-9]{6}$/, "Enter a valid 6-digit PIN code"),
-  lat: z.coerce.number().optional(),
-  lng: z.coerce.number().optional(),
+  postOffice: z.string().trim().min(2, "Select a post office"),
+  lat: z.coerce.number().min(6, "Select a location within India").max(38, "Select a location within India"),
+  lng: z.coerce.number().min(68, "Select a location within India").max(98, "Select a location within India"),
 
   serviceAreas: z.string().trim().min(1, "Service areas are required"),
   beneficiariesCount: z.coerce.number().int().nonnegative().optional(),

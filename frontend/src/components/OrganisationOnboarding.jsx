@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import logo from '../assets/sahai-india-logo.png'
 import { createOrganisation } from '../services/organisationApi.js'
+import LocationPicker from './LocationPicker.jsx'
 
 const organisationTypes = [
   ['ngo', 'NGO / nonprofit'], ['govt', 'Government organisation'], ['hospital', 'Hospital / health provider'],
@@ -15,7 +16,7 @@ const focusAreas = ['Education', 'Healthcare', 'Women & child welfare', 'Livelih
 const initialForm = {
   organisationName: '', organisationType: '', legalStructure: '', registrationNumber: '', yearEstablished: '',
   website: '', description: '', contactName: '', designation: '', email: '', phone: '', alternatePhone: '',
-  address: '', city: '', district: '', state: '', pincode: '', serviceAreas: '', beneficiaries: '',
+  address: '', city: '', district: '', state: '', pincode: '', postOffice: '', lat: '', lng: '', locationSource: '', serviceAreas: '', beneficiaries: '',
   focusAreas: [], registrationCertificate: null, panDocument: null, addressProof: null, logo: null,
   authorisedLetter: null, declaration: false,
 }
@@ -78,7 +79,7 @@ function OrganisationOnboarding({ user, onBack, onComplete }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
-    const requiredFields = ['organisationName', 'organisationType', 'legalStructure', 'registrationNumber', 'yearEstablished', 'description', 'contactName', 'designation', 'email', 'phone', 'address', 'city', 'district', 'state', 'pincode', 'serviceAreas']
+    const requiredFields = ['organisationName', 'organisationType', 'legalStructure', 'registrationNumber', 'yearEstablished', 'description', 'contactName', 'designation', 'email', 'phone', 'address', 'city', 'district', 'state', 'pincode', 'postOffice', 'lat', 'lng', 'serviceAreas']
     if (requiredFields.some((field) => !String(form[field]).trim())) return setError('Please complete all fields marked with an asterisk.')
     if (!/^\S+@\S+\.\S+$/.test(form.email)) return setError('Enter a valid official email address.')
     if (!/^\d{10}$/.test(form.phone)) return setError('Enter a valid 10-digit contact number.')
@@ -170,11 +171,7 @@ function OrganisationOnboarding({ user, onBack, onComplete }) {
             <Field label="Designation" required><input name="designation" value={form.designation} onChange={updateField} placeholder="e.g. Director, Trustee" className={inputClass} /></Field>
             <Field label="Official email" required><input name="email" type="email" value={form.email} onChange={updateField} placeholder="contact@organisation.org" className={inputClass} /></Field>
             <Field label="Mobile number" required><div className="flex rounded-xl border border-slate-300 bg-white focus-within:border-navy focus-within:ring-4 focus-within:ring-blue-100"><span className="grid place-items-center border-r border-slate-200 px-4 text-sm font-bold text-slate-500">+91</span><input name="phone" inputMode="numeric" value={form.phone} onChange={updateField} placeholder="10-digit number" className="min-w-0 flex-1 rounded-r-xl px-4 py-3 text-sm outline-none" /></div></Field>
-            <div className="sm:col-span-2"><Field label="Registered office address" required><textarea name="address" value={form.address} onChange={updateField} rows="3" placeholder="Building, street, locality" className={`${inputClass} resize-y`} /></Field></div>
-            <Field label="City / town" required><input name="city" value={form.city} onChange={updateField} className={inputClass} /></Field>
-            <Field label="District" required><input name="district" value={form.district} onChange={updateField} className={inputClass} /></Field>
-            <Field label="State / UT" required><input name="state" value={form.state} onChange={updateField} placeholder="e.g. Delhi" className={inputClass} /></Field>
-            <Field label="PIN code" required><input name="pincode" inputMode="numeric" value={form.pincode} onChange={updateField} placeholder="6-digit PIN" className={inputClass} /></Field>
+            <LocationPicker value={form} onChange={(location) => { setForm((current) => ({ ...current, ...location })); setError('') }} title="Verify registered office location" addressLabel="Registered office address" />
           </div>
         </section>
 
