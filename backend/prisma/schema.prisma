@@ -164,8 +164,10 @@ model Organization {
   district String
   state    String
   pincode  String
+  postOffice String?
   lat      Float?
   lng      Float?
+  locationVerifiedAt DateTime?
 
   serviceAreas       String?
   beneficiariesCount Int?
@@ -197,14 +199,18 @@ model OrgTask {
   title              String
   description        String
   complaintReference String?
+  complaintCategory  String?
+  routedDepartment   String?
   area               String
   address            String
   city               String?
   district           String?
   state              String?
   pincode             String?
+  postOffice          String?
   lat                Float?
   lng                Float?
+  locationVerifiedAt DateTime?
   priority           OrgTaskPriority @default(medium)
   status             OrgTaskStatus   @default(assigned)
   beforeImageUrl     String?

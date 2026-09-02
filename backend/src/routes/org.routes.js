@@ -18,9 +18,12 @@ import {
   startOrganizationTask,
   uploadOrganizationTaskProof,
 } from "../controllers/organizationTaskController.js";
+import { getPincodeDetails, reverseLocation } from "../controllers/locationController.js";
 
 const routes = new Router();
 
+routes.get("/locations/pincode/:pincode", verifyToken, getPincodeDetails);
+routes.get("/locations/reverse", verifyToken, reverseLocation);
 
 routes.post(
   "/organizations",

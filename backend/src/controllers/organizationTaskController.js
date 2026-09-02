@@ -1,6 +1,8 @@
 import streamifier from "streamifier";
 import prisma from "../../PrismaClient.js";
 import cloudinary from "../config/claudinary.js";
+import { validateIndianLocation } from "../services/locationService.js";
+import { routeComplaint } from "../services/complaintRoutingService.js";
 
 const taskInclude = {
   assignedTo: {
@@ -57,9 +59,9 @@ export const getOrganizationTasks = async (req, res) => {
 };
 
 export const createOrganizationTask = async (req, res) => {
-  const { title, description, assignedToId, area, address } = req.body || {};
-  if (![title, description, assignedToId, area, address].every((value) => typeof value === "string" && value.trim())) {
-    return res.status(400).json({ success: false, message: "Title, description, staff member, area, and address are required", data: null });
+  const { title, description, assignedToId, area, address, pincode, postOffice, state, district, complaintCategory } = req.body || {};
+  if (![title, description, assignedToId, area, address, pincode, postOffice, state, district, complaintCategory].every((value) => typeof value === "string" && value.trim())) {
+    return res.status(400).json({ success: false, message: "Task details and a verified work location are required", data: null });
   }
 
   try {
@@ -75,11 +77,13 @@ export const createOrganizationTask = async (req, res) => {
 
     const allowedPriorities = new Set(["low", "medium", "high", "urgent"]);
     const priority = allowedPriorities.has(req.body.priority) ? req.body.priority : "medium";
-    const toCoordinate = (value) => {
-      if (value === "" || value === undefined || value === null) return null;
-      const parsed = Number(value);
-      return Number.isFinite(parsed) ? parsed : null;
-    };
+    let verifiedLocation;
+    try {
+      verifiedLocation = await validateIndianLocation({ ...req.body, pincode, postOffice, state, district });
+    } catch (error) {
+      return res.status(error.statusCode || 400).json({ success: false, message: error.message, data: null });
+    }
+    const routing = routeComplaint(complaintCategory, verifiedLocation);
 
     const task = await prisma.orgTask.create({
       data: {
@@ -89,14 +93,18 @@ export const createOrganizationTask = async (req, res) => {
         title: title.trim().slice(0, 140),
         description: description.trim().slice(0, 2000),
         complaintReference: cleanOptional(req.body.complaintReference, 100),
+        complaintCategory: routing.category,
+        routedDepartment: routing.department,
         area: area.trim().slice(0, 200),
         address: address.trim().slice(0, 500),
-        city: cleanOptional(req.body.city, 100),
-        district: cleanOptional(req.body.district, 100),
-        state: cleanOptional(req.body.state, 100),
-        pincode: cleanOptional(req.body.pincode, 10),
-        lat: toCoordinate(req.body.lat),
-        lng: toCoordinate(req.body.lng),
+        city: verifiedLocation.city,
+        district: verifiedLocation.district,
+        state: verifiedLocation.state,
+        pincode: verifiedLocation.pincode,
+        postOffice: verifiedLocation.postOffice,
+        lat: verifiedLocation.lat,
+        lng: verifiedLocation.lng,
+        locationVerifiedAt: verifiedLocation.locationVerifiedAt,
         priority,
       },
       include: taskInclude,

@@ -1,23 +1,9 @@
-import axios from "axios";
 import crypto from "node:crypto";
 import streamifier from "streamifier";
 import prisma from "../../PrismaClient.js";
 import cloudinary from "../config/claudinary.js";
 import { createOrganizationSchema } from "../validation/organizationValidation.js";
-
-const geocodeAddress = async (address) => {
-  try {
-    const response = await axios.get("https://nominatim.openstreetmap.org/search", {
-      params: { q: address, format: "json", limit: 1 },
-      headers: { "User-Agent": "SAATHI211India/1.0" },
-    });
-    if (response.data.length === 0) return { lat: null, lng: null };
-    return { lat: parseFloat(response.data[0].lat), lng: parseFloat(response.data[0].lon) };
-  } catch (err) {
-    console.error("Geocoding failed:", err.message);
-    return { lat: null, lng: null };
-  }
-};
+import { validateIndianLocation } from "../services/locationService.js";
 
 const uploadToCloudinary = (fileBuffer, folder) => {
   return new Promise((resolve, reject) => {
@@ -126,6 +112,9 @@ export const createOrg = async (req, res) => {
     district,
     state,
     pincode,
+    postOffice,
+    lat,
+    lng,
     serviceAreas,
     beneficiariesCount,
     focusAreas,
@@ -136,8 +125,12 @@ export const createOrg = async (req, res) => {
     logoUrl,
   } = result.data;
 
-  const fullAddress = `${address ? address + ", " : ""}${city}, ${district}, ${state}, ${pincode}`;
-  const { lat, lng } = await geocodeAddress(fullAddress);
+  let verifiedLocation;
+  try {
+    verifiedLocation = await validateIndianLocation({ pincode, postOffice, state, district, city, lat, lng });
+  } catch (error) {
+    return res.status(error.statusCode || 400).json({ success: false, message: error.message, data: null });
+  }
 
   try {
     const newOrg = await prisma.organization.create({
@@ -154,12 +147,14 @@ export const createOrg = async (req, res) => {
         email,
         contactPhone,
         address,
-        city,
-        district,
-        state,
-        pincode,
-        lat,
-        lng,
+        city: verifiedLocation.city,
+        district: verifiedLocation.district,
+        state: verifiedLocation.state,
+        pincode: verifiedLocation.pincode,
+        postOffice: verifiedLocation.postOffice,
+        lat: verifiedLocation.lat,
+        lng: verifiedLocation.lng,
+        locationVerifiedAt: verifiedLocation.locationVerifiedAt,
         serviceAreas,
         beneficiariesCount,
         focusAreas,
@@ -441,6 +436,24 @@ export const updateOrganization = async (req, res) => {
 
     for (const field of LOCKED_DOC_FIELDS) {
       delete result.data[field];
+    }
+
+    const locationFields = ["address", "city", "district", "state", "pincode", "postOffice", "lat", "lng"];
+    if (locationFields.some((field) => Object.hasOwn(body, field))) {
+      try {
+        const verifiedLocation = await validateIndianLocation({
+          pincode: result.data.pincode ?? org.pincode,
+          postOffice: result.data.postOffice ?? org.postOffice,
+          state: result.data.state ?? org.state,
+          district: result.data.district ?? org.district,
+          city: result.data.city ?? org.city,
+          lat: result.data.lat ?? org.lat,
+          lng: result.data.lng ?? org.lng,
+        });
+        Object.assign(result.data, verifiedLocation);
+      } catch (error) {
+        return res.status(error.statusCode || 400).json({ success: false, message: error.message, data: null });
+      }
     }
 
     const updatedOrg = await prisma.organization.update({
