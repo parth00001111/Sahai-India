@@ -18,6 +18,12 @@ import {
   startOrganizationTask,
   uploadOrganizationTaskProof,
 } from "../controllers/organizationTaskController.js";
+import {
+  createOrganizationService,
+  deleteOrganizationService,
+  getOrganizationServices,
+  updateOrganizationService,
+} from "../controllers/serviceController.js";
 
 const routes = new Router();
 
@@ -39,6 +45,10 @@ routes.patch("/organizations/me", verifyToken, updateOrganization);
 routes.post("/organizations/members", verifyToken, addOrgMember);
 routes.get("/organization-invitations/:token", getOrganizationInvitation);
 routes.delete("/organizations/invitations/:id", verifyToken, revokeOrganizationInvitation);
+routes.get("/organizations/services", verifyToken, getOrganizationServices);
+routes.post("/organizations/services", verifyToken, createOrganizationService);
+routes.patch("/organizations/services/:id", verifyToken, updateOrganizationService);
+routes.delete("/organizations/services/:id", verifyToken, deleteOrganizationService);
 routes.get("/organizations/tasks", verifyToken, getOrganizationTasks);
 routes.post("/organizations/tasks", verifyToken, createOrganizationTask);
 routes.patch("/organizations/tasks/:id/start", verifyToken, startOrganizationTask);

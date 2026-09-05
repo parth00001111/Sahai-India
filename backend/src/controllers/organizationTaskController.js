@@ -14,7 +14,7 @@ const taskInclude = {
   createdBy: { select: { id: true, email: true } },
 };
 
-const getMembership = (userId) => prisma.orgMember.findFirst({
+const getMembership = (userId) => prisma.orgMember.findUnique({
   where: { userId },
   include: { organization: { select: { id: true, name: true } } },
 });

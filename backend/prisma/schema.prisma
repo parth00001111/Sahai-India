@@ -53,6 +53,13 @@ enum OrgTaskPriority {
   urgent
 }
 
+enum ServiceDeliveryMode {
+  at_centre
+  doorstep
+  online
+  mobile_camp
+}
+
 enum UserType {
   citizen
   org_staff
@@ -114,13 +121,13 @@ model User {
   userType  UserType @default(citizen)
   createdAt DateTime @default(now())
 
-  profile       Profile?
-  orgMembers    OrgMember[]
-  reports       Report[]
-  verifiedOrgs  Organization[]          @relation("VerifiedBy")
-  statusChanges ReferralStatusHistory[]
-  assignedOrgTasks OrgTask[]            @relation("AssignedOrgTasks")
-  createdOrgTasks  OrgTask[]            @relation("CreatedOrgTasks")
+  profile          Profile?
+  orgMembers       OrgMember[]
+  reports          Report[]
+  verifiedOrgs     Organization[]          @relation("VerifiedBy")
+  statusChanges    ReferralStatusHistory[]
+  assignedOrgTasks OrgTask[]               @relation("AssignedOrgTasks")
+  createdOrgTasks  OrgTask[]               @relation("CreatedOrgTasks")
 
   @@map("users")
 }
@@ -202,7 +209,7 @@ model OrgTask {
   city               String?
   district           String?
   state              String?
-  pincode             String?
+  pincode            String?
   lat                Float?
   lng                Float?
   priority           OrgTaskPriority @default(medium)
@@ -216,8 +223,8 @@ model OrgTask {
   updatedAt          DateTime        @updatedAt
 
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  assignedTo  User         @relation("AssignedOrgTasks", fields: [assignedToId], references: [id])
-  createdBy   User         @relation("CreatedOrgTasks", fields: [createdById], references: [id])
+  assignedTo   User         @relation("AssignedOrgTasks", fields: [assignedToId], references: [id])
+  createdBy    User         @relation("CreatedOrgTasks", fields: [createdById], references: [id])
 
   @@index([orgId, status])
   @@index([assignedToId, status])
@@ -234,6 +241,7 @@ model OrgMember {
   user         User         @relation(fields: [userId], references: [id])
 
   @@unique([orgId, userId])
+  @@unique([userId])
   @@map("org_members")
 }
 
@@ -266,19 +274,30 @@ model ProblemCategory {
 }
 
 model Service {
-  id          String  @id @default(uuid())
-  orgId       String
-  categoryId  Int
-  name        String
-  description String?
-  capacity    Int?
-  isActive    Boolean @default(true)
+  id                String              @id @default(uuid())
+  orgId             String
+  categoryId        Int
+  name              String
+  description       String?
+  capacity          Int?
+  capacityUnit      String?
+  deliveryMode      ServiceDeliveryMode @default(at_centre)
+  availability      String?
+  serviceArea       String?
+  contactPhone      String?
+  eligibility       String?
+  requiredDocuments String?
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 
   organization     Organization      @relation(fields: [orgId], references: [id])
   category         ProblemCategory   @relation(fields: [categoryId], references: [id])
   eligibilityRules EligibilityRule[]
   referrals        Referral[]
 
+  @@index([orgId, isActive])
+  @@index([categoryId, isActive])
   @@map("services")
 }
 

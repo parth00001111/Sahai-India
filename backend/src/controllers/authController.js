@@ -28,8 +28,8 @@ const cookieOptions = {
 };
 
 export const signup = async (req, res) => {
-  
-  
+  const result = signupSchema.safeParse(req.body);
+
   if (!result.success) {
     return res.status(400).json({
       success: false,

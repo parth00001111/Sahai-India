@@ -112,18 +112,26 @@ function App() {
     }
     setWorkspaceError('')
 
-    if (savedUser?.userType === 'org_staff') {
-      try {
-        const databaseOrganisation = await getMyOrganisation()
-        if (databaseOrganisation) {
-          setDashboardOrganisation(databaseOrganisation)
-          setShowDashboard(true)
-          return true
-        }
-      } catch (requestError) {
-        setWorkspaceError(requestError.message)
-        return false
+    if (!savedUser) {
+      setAuthMode('signup')
+      return false
+    }
+
+    if (savedUser.userType !== 'org_staff') {
+      setWorkspaceError('Organisation onboarding requires an organisation-staff account. Please use a separate organisation account.')
+      return false
+    }
+
+    try {
+      const databaseOrganisation = await getMyOrganisation()
+      if (databaseOrganisation) {
+        setDashboardOrganisation(databaseOrganisation)
+        setShowDashboard(true)
+        return true
       }
+    } catch (requestError) {
+      setWorkspaceError(requestError.message)
+      return false
     }
 
     setOnboardingUser(savedUser)
