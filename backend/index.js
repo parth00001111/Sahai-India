@@ -1,9 +1,11 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import dotenv from "dotenv"
-import authRoute from "./src/routes/auth.routes.js"
-import orgRoute from "./src/routes/org.routes.js"
+import dotenv from "dotenv";
+import authRoute from "./src/routes/auth.routes.js";
+import orgRoute from "./src/routes/org.routes.js";
+import serviceRoute from "./src/routes/service.routes.js";
+
 dotenv.config();
 const port = process.env.PORT || 5000;
 const app = express();
@@ -11,8 +13,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(cookieParser());
-app.use("/api/v1", authRoute)
-app.use("/api/v1", orgRoute)
+app.use("/api/v1", authRoute);
+app.use("/api/v1/organizations/services", serviceRoute);
+app.use("/api/v1", orgRoute);
 
 app.get("/", (req, res) => {
     res.json({

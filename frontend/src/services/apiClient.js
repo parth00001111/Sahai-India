@@ -10,10 +10,9 @@ const apiClient = axios.create({
 
 function validationMessage(data) {
   const message = data?.message
-  if (typeof message === 'string') return message
-
   const issue = message?.issues?.[0]?.message || data?.errors?.issues?.[0]?.message
-  return typeof issue === 'string' ? issue : null
+  if (typeof issue === 'string') return issue
+  return typeof message === 'string' ? message : null
 }
 
 export function apiErrorMessage(error, fallback = 'Something went wrong. Please try again.') {

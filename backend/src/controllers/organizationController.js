@@ -32,7 +32,7 @@ export const createOrg = async (req, res) => {
   }
 
   try {
-    const existingMembership = await prisma.orgMember.findFirst({
+    const existingMembership = await prisma.orgMember.findUnique({
       where: { userId: req.user.userId },
       include: { organization: true },
     });
@@ -171,14 +171,43 @@ export const createOrg = async (req, res) => {
           },
         },
       },
+      include: {
+        members: {
+          select: {
+            id: true,
+            role: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                phone: true,
+                profile: { select: { fullName: true } },
+              },
+            },
+          },
+        },
+      },
     });
 
     return res.status(201).json({
       success: true,
       message: "Organization created, pending document verification",
-      data: newOrg,
+      data: {
+        ...newOrg,
+        services: [],
+        invitations: [],
+        currentUserRole: "admin",
+      },
     });
   } catch (err) {
+    if (err?.code === "P2002") {
+      return res.status(409).json({
+        success: false,
+        message: "Your account is already connected to an organisation",
+        data: null,
+      });
+    }
+
     console.log(err.message);
     return res.status(502).json({
       success: false,
@@ -198,12 +227,19 @@ export const getMyOrganization = async (req, res) => {
   }
 
   try {
-    const membership = await prisma.orgMember.findFirst({
+    const membership = await prisma.orgMember.findUnique({
       where: { userId: req.user.userId },
       include: {
         organization: {
           include: {
-            services: true,
+            services: {
+              include: {
+                category: {
+                  select: { id: true, name: true, description: true },
+                },
+              },
+              orderBy: { createdAt: "desc" },
+            },
             members: {
               select: {
                 id: true,
@@ -342,7 +378,7 @@ export const addOrgMember = async (req, res) => {
       });
     }
 
-    const existingMembership = await prisma.orgMember.findFirst({
+    const existingMembership = await prisma.orgMember.findUnique({
       where: { userId: targetUser.id },
     });
 
@@ -371,6 +407,14 @@ export const addOrgMember = async (req, res) => {
       data: { kind: "member", ...newMember },
     });
   } catch (err) {
+    if (err?.code === "P2002") {
+      return res.status(409).json({
+        success: false,
+        message: "This user is already part of an organisation",
+        data: null,
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: "Unable to add member: " + err.message,
