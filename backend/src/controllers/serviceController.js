@@ -92,6 +92,37 @@ export const getOrganizationServices = async (req, res) => {
   }
 };
 
+export const getOrganizationService = async (req, res) => {
+  try {
+    const membership = await getMembership(req.user.userId);
+    if (!membership) return sendMembershipError(res);
+
+    const service = await prisma.service.findFirst({
+      where: {
+        id: req.params.id,
+        orgId: membership.orgId,
+      },
+      include: serviceInclude,
+    });
+
+    if (!service) {
+      return res.status(404).json({
+        success: false,
+        message: "Service not found in your organisation",
+        data: null,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Organisation service fetched successfully",
+      data: service,
+    });
+  } catch (error) {
+    return logAndSendServerError(res, "Unable to fetch organisation service", error);
+  }
+};
+
 export const createOrganizationService = async (req, res) => {
   try {
     const membership = await getMembership(req.user.userId);

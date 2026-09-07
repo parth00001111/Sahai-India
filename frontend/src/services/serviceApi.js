@@ -14,6 +14,11 @@ export const getOrganisationServices = () => request(
   'Unable to load organisation services.',
 )
 
+export const getOrganisationService = (id) => request(
+  () => apiClient.get(`/organizations/services/${id}`),
+  'Unable to load this organisation service.',
+)
+
 export const createOrganisationService = (service) => request(
   () => apiClient.post('/organizations/services', service),
   'Unable to create this service.',
