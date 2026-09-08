@@ -34,6 +34,21 @@ const nullableText = (maxLength, message) => z.preprocess(
   z.string().trim().max(maxLength, message).nullable().optional(),
 );
 
+const requiredText = (label, maxLength) => z
+  .string(`${label} is required`)
+  .trim()
+  .min(2, `${label} is required`)
+  .max(maxLength, `${label} cannot exceed ${maxLength} characters`);
+
+const contactPhoneSchema = z
+  .string("Public contact number is required")
+  .trim()
+  .regex(/^[0-9+()\-\s]{7,20}$/, "Enter a valid public contact number")
+  .refine(
+    (value) => (value.match(/\d/g) || []).length >= 7,
+    "Public contact number must contain at least 7 digits",
+  );
+
 const nullableCapacity = z.preprocess(
   (value) => {
     if (value === null) return null;
@@ -67,24 +82,15 @@ const serviceFields = {
   capacity: nullableCapacity,
   capacityUnit: nullableText(80, "Capacity unit cannot exceed 80 characters"),
   deliveryMode: z
-    .enum(["at_centre", "doorstep", "online", "mobile_camp"])
-    .optional(),
-  availability: nullableText(200, "Availability cannot exceed 200 characters"),
-  serviceArea: nullableText(300, "Service area cannot exceed 300 characters"),
-  contactPhone: z.preprocess(
-    (value) => (typeof value === "string" && value.trim() === "" ? null : value),
-    z
-      .string()
-      .trim()
-      .regex(/^[0-9+()\-\s]{7,20}$/, "Enter a valid public contact number")
-      .refine(
-        (value) => (value.match(/\d/g) || []).length >= 7,
-        "Public contact number must contain at least 7 digits",
-      )
-      .nullable()
-      .optional(),
-  ),
-  eligibility: nullableText(2000, "Eligibility cannot exceed 2000 characters"),
+    .enum(["at_centre", "doorstep", "online", "mobile_camp"], {
+      message: "Select a valid delivery mode",
+    }),
+  availability: requiredText("Availability", 200),
+  serviceArea: requiredText("Service area", 300),
+  contactPhone: contactPhoneSchema,
+  eligibility: requiredText("Eligibility", 2000),
+  applicationProcess: requiredText("Application process", 1200),
+  feeDetails: requiredText("Fee information", 300),
   requiredDocuments: nullableText(
     1000,
     "Required documents cannot exceed 1000 characters",

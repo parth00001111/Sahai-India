@@ -292,6 +292,8 @@ model Service {
   serviceArea       String?
   contactPhone      String?
   eligibility       String?
+  applicationProcess String?
+  feeDetails        String?
   requiredDocuments String?
   isActive          Boolean             @default(true)
   createdAt         DateTime            @default(now())
