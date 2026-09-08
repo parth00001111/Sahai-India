@@ -227,7 +227,7 @@ export const getMyOrganization = async (req, res) => {
   }
 
   try {
-    const membership = await prisma.orgMember.findUnique({
+    const membership = await prisma.orgMember.findFirst({
       where: { userId: req.user.userId },
       include: {
         organization: {
