@@ -204,3 +204,8 @@ export const signin = async (req, res) => {
     });
   }
 };
+
+export const signout = (_req, res) => res
+  .clearCookie("token", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" })
+  .status(200)
+  .json({ success: true, message: "Signed out successfully", data: null });
