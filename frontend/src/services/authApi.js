@@ -11,3 +11,4 @@ async function authRequest(endpoint, payload) {
 
 export const signIn = (credentials) => authRequest('signin', credentials)
 export const signUp = (details) => authRequest('signup', details)
+export const signOut = () => authRequest('signout')
