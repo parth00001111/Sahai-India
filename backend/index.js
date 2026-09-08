@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import authRoute from "./src/routes/auth.routes.js";
 import orgRoute from "./src/routes/org.routes.js";
 import serviceRoute from "./src/routes/service.routes.js";
+import citizenRoute from "./src/routes/citizen.routes.js";
 
 dotenv.config();
 const port = process.env.PORT || 5000;
@@ -15,6 +16,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use("/api/v1", authRoute);
 app.use("/api/v1/organizations/services", serviceRoute);
+app.use("/api/v1/citizen", citizenRoute);
 app.use("/api/v1", orgRoute);
 
 app.get("/", (req, res) => {

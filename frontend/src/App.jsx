@@ -6,6 +6,7 @@ import AuthPage from './components/AuthPage.jsx'
 import OrganisationOnboarding from './components/OrganisationOnboarding.jsx'
 import OrganisationDashboard from './components/OrganisationDashboard.jsx'
 import OrganisationStaffDashboard from './components/OrganisationStaffDashboard.jsx'
+import CitizenDashboard from './components/CitizenDashboard.jsx'
 import { getMyOrganisation, getOrganisationInvitation } from './services/organisationApi.js'
 
 const slides = [
@@ -93,6 +94,8 @@ function App() {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [dashboardOrganisation, setDashboardOrganisation] = useState(() => readSavedOrganisation())
   const [showDashboard, setShowDashboard] = useState(false)
+  const [citizenUser, setCitizenUser] = useState(null)
+  const [showCitizenDashboard, setShowCitizenDashboard] = useState(false)
   const [workspaceError, setWorkspaceError] = useState('')
   const [invitation, setInvitation] = useState(null)
   useEffect(() => { const id = setInterval(() => setSlide((n) => (n + 1) % slides.length), 6500); return () => clearInterval(id) }, [])
@@ -148,8 +151,9 @@ function App() {
   if (showDashboard && dashboardOrganisation) return dashboardOrganisation.currentUserRole === 'staff'
     ? <OrganisationStaffDashboard organisation={dashboardOrganisation} onBack={() => setShowDashboard(false)} />
     : <OrganisationDashboard organisation={dashboardOrganisation} onBack={() => setShowDashboard(false)} onRefresh={refreshDashboard} />
+  if (showCitizenDashboard && citizenUser) return <CitizenDashboard user={citizenUser} onExit={() => { setShowCitizenDashboard(false); setCitizenUser(null) }} />
   if (showOnboarding) return <OrganisationOnboarding user={onboardingUser} onBack={() => setShowOnboarding(false)} onComplete={(application) => { setDashboardOrganisation(application); setShowOnboarding(false); setShowDashboard(true) }} />
-  if (authMode) return <AuthPage initialMode={authMode} invitation={invitation} onBack={() => { setAuthMode(null); setInvitation(null) }} onOrganisationOnboarding={async (user) => { const opened = await openOnboarding(user); if (opened) { setAuthMode(null); setInvitation(null); window.history.replaceState({}, '', window.location.pathname) } }} />
+  if (authMode) return <AuthPage initialMode={authMode} invitation={invitation} onBack={() => { setAuthMode(null); setInvitation(null) }} onCitizenDashboard={(user) => { setCitizenUser(user); setShowCitizenDashboard(true); setAuthMode(null); setInvitation(null) }} onOrganisationOnboarding={async (user) => { const opened = await openOnboarding(user); if (opened) { setAuthMode(null); setInvitation(null); window.history.replaceState({}, '', window.location.pathname) } }} />
 
   return <div className="min-h-screen overflow-x-hidden bg-[#fffdf9] text-ink">
     {workspaceError && <div role="alert" className="fixed inset-x-4 top-4 z-[100] mx-auto flex max-w-xl items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 shadow-xl"><span>{workspaceError}</span><button onClick={() => setWorkspaceError('')} aria-label="Dismiss message" className="text-lg">×</button></div>}

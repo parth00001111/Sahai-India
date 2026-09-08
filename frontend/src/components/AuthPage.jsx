@@ -10,7 +10,7 @@ const emptyForm = {
   userType: 'citizen',
 }
 
-function AuthPage({ initialMode, onBack, onOrganisationOnboarding, invitation }) {
+function AuthPage({ initialMode, onBack, onOrganisationOnboarding, onCitizenDashboard, invitation }) {
   const [mode, setMode] = useState(initialMode)
   const [form, setForm] = useState(() => invitation ? { ...emptyForm, email: invitation.email, userType: 'org_staff' } : emptyForm)
   const [showPassword, setShowPassword] = useState(false)
@@ -78,7 +78,7 @@ function AuthPage({ initialMode, onBack, onOrganisationOnboarding, invitation })
         <h1 className="mt-3 font-serif text-3xl font-bold text-navy">Welcome to Sahai India</h1>
         <p className="mt-3 leading-7 text-slate-600">{success.message}</p>
         {success.user?.email && <p className="mt-2 text-sm font-semibold text-slate-500">{success.user.email}</p>}
-        <button onClick={() => isOrganisation ? onOrganisationOnboarding?.(success.user) : onBack()} className="mt-8 w-full rounded-xl bg-navy px-5 py-3.5 font-bold text-white transition hover:bg-blue-950">{isOrganisation ? (success.isSignup ? 'Complete organisation onboarding' : 'Open organisation workspace') : 'Continue to homepage'}</button>
+        <button onClick={() => isOrganisation ? onOrganisationOnboarding?.(success.user) : onCitizenDashboard?.(success.user)} className="mt-8 w-full rounded-xl bg-navy px-5 py-3.5 font-bold text-white transition hover:bg-blue-950">{isOrganisation ? (success.isSignup ? 'Complete organisation onboarding' : 'Open organisation workspace') : 'Open citizen dashboard'}</button>
       </section>
     </main>
   }
