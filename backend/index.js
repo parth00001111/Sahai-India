@@ -8,7 +8,7 @@ import serviceRoute from "./src/routes/service.routes.js";
 import citizenRoute from "./src/routes/citizen.routes.js";
 
 dotenv.config();
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 5001;
 const app = express();
 
 app.use(cors());

@@ -27,6 +27,18 @@ const cookieOptions = {
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
+const databaseUnavailable = (error) => {
+  const details = [error?.message, error?.cause?.message].filter(Boolean).join(" ");
+  return error?.code === "P1001"
+    || error?.code === "XX000"
+    || /ENOTFOUND|tenant\/user .* not found|can't reach database/i.test(details);
+};
+
+const databaseUnavailableResponse = (res) => res.status(503).json({
+  success: false,
+  message: "Login is temporarily unavailable because the database connection is not configured. Please contact the administrator.",
+});
+
 export const signup = async (req, res) => {
   const result = signupSchema.safeParse(req.body);
 
@@ -120,7 +132,7 @@ export const signup = async (req, res) => {
       return createdUser;
     });
 
-    
+
     const token = generateToken(newUser);
 
     return res.status(201).cookie("token", token, cookieOptions).json({
@@ -136,6 +148,11 @@ export const signup = async (req, res) => {
         success: false,
         message: "An account with this email or mobile number already exists. Please sign in.",
       });
+    }
+
+    if (databaseUnavailable(err)) {
+      console.error("Signup database connection failed:", err.message);
+      return databaseUnavailableResponse(res);
     }
 
     console.error("Signup failed:", err);
@@ -165,7 +182,7 @@ export const signin = async (req, res) => {
       where: { email },
     });
 
-   
+
     if (!userExist) {
       return res.status(401).json({
         success: false,
@@ -196,11 +213,15 @@ export const signin = async (req, res) => {
       },
     });
   } catch (err) {
-    console.log(err.message);
+    if (databaseUnavailable(err)) {
+      console.error("Signin database connection failed:", err.message);
+      return databaseUnavailableResponse(res);
+    }
+
+    console.error("Signin failed:", err);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
-      error: err.message,
     });
   }
 };
